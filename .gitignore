@@ -1,0 +1,7 @@
+*~
+*.o
+*.tar.gz
+*.gcda
+*.gcno
+*.gcov
+build/
