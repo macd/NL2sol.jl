@@ -62,7 +62,7 @@ const df_maxFuncCall = 400
 if haskey(ENV, "NL2SOL_LIBPATH")
     const libnl2sol = joinpath(ENV["NL2SOL_LIBPATH"], "libnl2sol.so")
 else
-    const libnl2sol = joinpath(Pkg.dir(), "NL2sol.jl/deps/usr/lib/libnl2sol.so")
+    const libnl2sol = joinpath(Pkg.dir(), "NL2sol/deps/usr/lib/libnl2sol.so")
 end
 
 function nl2sol_set_defaults(iv, v)
