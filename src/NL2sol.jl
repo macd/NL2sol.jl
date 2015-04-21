@@ -66,9 +66,7 @@ else
 end
 
 function nl2sol_set_defaults(iv, v)
-    const status = ccall((:dfault_, libnl2sol), Void, (Ptr{Int32}, Ptr{Float64}), 
-                          iv, v)
-    #status != 0 && error("NL2SOL initialization problem. Error: ", status)
+    ccall((:dfault_, libnl2sol), Void, (Ptr{Int32}, Ptr{Float64}), iv, v)
 end
 
 type NL2Array{T}
@@ -222,18 +220,18 @@ function nl2sol(res::Function, jac::Function, init_x, n;
     urparm = Array(Float32, 1)
     ufparm = Array(Ptr{Void}, 1)
     nl2res, nl2jac = nl2sol_set_functions(res, jac)
-    const status = ccall((:nl2sol_, libnl2sol),
-                         Void, (Ptr{Int32},
-                         Ptr{Int32},
-                         Ptr{Float64},
-                         Ptr{Void},
-                         Ptr{Void},
-                         Ptr{Int32},
-                         Ptr{Float64},
-                         Ptr{Int32},
-                         Ptr{Float64},
-                         Vector{Ptr{Void}}),
-             n_, p_, x, nl2res, nl2jac, iv, v, uiparm, urparm, ufparm)
+    ccall((:nl2sol_, libnl2sol), Void,
+        (Ptr{Int32},    # many need to change this to Tuple{Type1, Type2,...}
+         Ptr{Int32},
+         Ptr{Float64},
+         Ptr{Void},
+         Ptr{Void},
+         Ptr{Int32},
+         Ptr{Float64},
+         Ptr{Int32},
+         Ptr{Float64},
+         Vector{Ptr{Void}}),
+         n_, p_, x, nl2res, nl2jac, iv, v, uiparm, urparm, ufparm)
     #status != 0 && error("NL2SOL: error in solve. Error: ", status)
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SOL memory corruption")
 
