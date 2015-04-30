@@ -200,8 +200,9 @@ function nl2sol(res::Function, jac::Function, init_x, n;
                 maxFuncCall=df_maxFuncCall, quiet=true)
     p = length(init_x)
     x = copy(init_x)
-    p_ = Int32[p]
-    n_ = Int32[n]
+    p_ = Int32(p)
+    n_ = Int32(n)
+
     ivsize = p + 60 + PADDING
     vsize = round(Int, 93 + n*(p + 3) + (3 * p * (p + 11))/2) + PADDING
     iv = zeros(Int32, ivsize)
@@ -217,9 +218,10 @@ function nl2sol(res::Function, jac::Function, init_x, n;
     quiet ? iv[PRUNIT] = 0 : nothing
     # Currently, we do not use any of these.
     uiparm = Array(Int32, 1)
-    urparm = Array(Float32, 1)
+    urparm = Float64[]
     ufparm = Array(Ptr{Void}, 1)
     nl2res, nl2jac = nl2sol_set_functions(res, jac)
+
     ccall((:nl2sol_, libnl2sol), Void,
         (Ptr{Int32},    # many need to change this to Tuple{Type1, Type2,...}
          Ptr{Int32},
@@ -230,9 +232,9 @@ function nl2sol(res::Function, jac::Function, init_x, n;
          Ptr{Float64},
          Ptr{Int32},
          Ptr{Float64},
-         Vector{Ptr{Void}}),
-         n_, p_, x, nl2res, nl2jac, iv, v, uiparm, urparm, ufparm)
-    #status != 0 && error("NL2SOL: error in solve. Error: ", status)
+         Ptr{Void}),
+         &n_, &p_, x, nl2res, nl2jac, iv, v, uiparm, urparm, ufparm)
+
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SOL memory corruption")
 
     quiet || println("Convergence state: ", return_code[iv[1]])

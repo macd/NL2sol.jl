@@ -1,5 +1,5 @@
 import Optim
-include("../src/nl2sol.jl")
+#include("../src/NL2sol.jl")
 using NL2sol
 using Base.Test
 
@@ -746,13 +746,15 @@ const problematic =  ["cragg_levy", "davidon"]
 #const working = cmplt[1:3]
 const working = cmplt
 
-# set levenberg_marquardt convergence tolerances in line with nl2sol
+# Set levenberg_marquardt x convergence tolerance in line with nl2sol. 
+# Note that nl2sol does not directly test the convergence of the gradient
+# as does levenberg_marquardt.  Rather it has tests for the relative and 
+# absolute function convergence, so we don't mess with LM's tolG.
 const tolX = sqrt(0.999*eps())
-const tolG = 2e-16
 
-quiet = true
+quiet = false
 
-# Will change this to actually doing some checking
+# Still need to change this to check against the results in "paper_results.txt"
 function runall()
 
     for (prb, v) in problems
@@ -767,7 +769,8 @@ function runall()
             nl_results = nl2sol(nlres, nljac, x_init, n; maxIter=400, quiet=true)
 
             results = Optim.levenberg_marquardt(lmres, lmjac, x_init; 
-                                                maxIter=400, tolX=tolX, tolG=tolG)
+                                                maxIter=400, tolX=tolX)
+
             if !quiet
                 println("\nnl2sol on problem $prb at scale $scale")
                 println(nl_results)
