@@ -78,7 +78,7 @@ This makes doing apples to apples comparisons challenging.
 Here is a simple and complete example of using NL2SOl.
 
 
-    using Nl2sol
+    using NL2sol
 
     function rosenbrock_res(x, r)
         r[1] = 10. * (x[2] - x[1]^2 )
