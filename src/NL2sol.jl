@@ -1,5 +1,5 @@
 module NL2sol
-import Base: getindex, setindex!, unsafe_store!, length, endof, size, start, next, done
+import Base
 import Optim
 
 using Lexicon
@@ -74,13 +74,13 @@ type NL2Array{T}
     rows::Int32
 end
 
-getindex(x::NL2Array, i) = unsafe_load(x.p, i)
-setindex!(x::NL2Array, y, i) = unsafe_store!(x.p, y, i)
-length(x::NL2Array) = x.rows
-endof(x::NL2Array) = length(x)
-start(::NL2Array) = 1    #start(x::NL2Array) = 1
-next(x::NL2Array, i) = (x[i], i+1)
-done(x::NL2Array, i) = (i > length(x))
+Base.getindex(x::NL2Array, i) = unsafe_load(x.p, i)
+Base.setindex!(x::NL2Array, y, i) = unsafe_store!(x.p, y, i)
+Base.length(x::NL2Array) = x.rows
+Base.endof(x::NL2Array) = length(x)
+Base.start(::NL2Array) = 1    #start(x::NL2Array) = 1
+Base.next(x::NL2Array, i) = (x[i], i+1)
+Base.done(x::NL2Array, i) = (i > length(x))
 
 type NL2Matrix{T}
     p::Ptr{T}
@@ -88,21 +88,21 @@ type NL2Matrix{T}
     cols::Int32
 end
 
-getindex(x::NL2Matrix, i, j) = unsafe_load(x.p, x.rows*(j - 1) + i)
-getindex(x::NL2Matrix, i) = unsafe_load(x.p, i)  # as one-D
-setindex!(x::NL2Matrix, y, i, j) = unsafe_store!(x.p, y, x.rows*(j - 1) + i)
-setindex!(x::NL2Matrix, y, i) = unsafe_store!(x.p, y, i) # as one-D
+Base.getindex(x::NL2Matrix, i, j) = unsafe_load(x.p, x.rows*(j - 1) + i)
+Base.getindex(x::NL2Matrix, i) = unsafe_load(x.p, i)  # as one-D
+Base.setindex!(x::NL2Matrix, y, i, j) = unsafe_store!(x.p, y, x.rows*(j - 1) + i)
+Base.setindex!(x::NL2Matrix, y, i) = unsafe_store!(x.p, y, i) # as one-D
 
 # living on the edge...  This is to make x[:] = 0.0 work for the NL2 types
-function unsafe_store!(x::Ptr{Float64}, val::Float64, I::UnitRange{Int})
-    for i = 1:length(I)
+Base.unsafe_store! = function unsafe_store!(x::Ptr{Float64}, val::Float64, I::UnitRange{Int})
+    for i in I
         unsafe_store!(x, val, i)
     end
 end
 
-length(x::NL2Matrix) = x.rows * x.cols
-endof(x::NL2Matrix) = length(x)
-size(x::NL2Matrix) = (x.rows, x.cols)
+Base.length(x::NL2Matrix) = x.rows * x.cols
+Base.endof(x::NL2Matrix) = length(x)
+Base.size(x::NL2Matrix) = (x.rows, x.cols)
 
 function nl2sol_set_functions(res, jac)
     wr = Symbol(string("nl2_", res))
