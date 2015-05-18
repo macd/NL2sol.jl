@@ -94,11 +94,13 @@ Base.setindex!(x::NL2Matrix, y, i, j) = unsafe_store!(x.p, y, x.rows*(j - 1) + i
 Base.setindex!(x::NL2Matrix, y, i) = unsafe_store!(x.p, y, i) # as one-D
 
 # living on the edge...  This is to make x[:] = 0.0 work for the NL2 types
-Base.unsafe_store! = function unsafe_store!(x::Ptr{Float64}, val::Float64, I::UnitRange{Int})
-    for i in I
-        unsafe_store!(x, val, i)
+#Base.unsafe_store! = function unsafe_store!(x::Ptr{Float64}, val::Float64, I::UnitRange{Int})
+Base.unsafe_store!(x::Ptr{Float64}, val::Float64, I::UnitRange{Int}) =
+    function unsafe_store!(x::Ptr{Float64}, val::Float64, I::UnitRange{Int})
+        for i in I
+            unsafe_store!(x, val, i)
+        end
     end
-end
 
 Base.length(x::NL2Matrix) = x.rows * x.cols
 Base.endof(x::NL2Matrix) = length(x)
