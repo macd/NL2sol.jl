@@ -56,6 +56,8 @@ guess is far from the optimim point.
 
 ## Limitations
 
+  * Only supported in Julia 0.4 (and greater, someday)
+
   * Only a linux version, compiled on Ubuntu 14.04 is currently available.
 
   * NL2sol does nasty pointer tricks that are liable to make programs
@@ -81,8 +83,8 @@ Here is a simple and complete example of using NL2SOl.
     using NL2sol
 
     function rosenbrock_res(x, r)
-        r[1] = 10. * (x[2] - x[1]^2 )
-        r[2] = 1. - x[1]
+        r[1] = 10.0 * (x[2] - x[1]^2 )
+        r[2] = 1.0 - x[1]
         return r
     end
 
