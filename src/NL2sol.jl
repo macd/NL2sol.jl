@@ -4,7 +4,6 @@ import Optim
 
 using Lexicon
 using Docile
-@document
 
 export nl2sol
 

@@ -1,8 +1,9 @@
 import Optim
 
-# Uncomment these if running tests in relative directories
-#ENV["NL2SOL_LIBPATH"] = "../deps/usr/lib"
-#include("../src/NL2sol.jl")
+# Uncomment these if running tests in relative directories (or rather,
+# comment them out if testing installed NL2sol)
+ENV["NL2SOL_LIBPATH"] = "../deps/usr/lib"
+include("../src/NL2sol.jl")
 
 using NL2sol
 using Base.Test
