@@ -112,6 +112,11 @@ Base.length(x::NL2Matrix) = x.rows * x.cols
 Base.endof(x::NL2Matrix) = length(x)
 Base.size(x::NL2Matrix) = (x.rows, x.cols)
 
+
+# TODO: we should cache these function defs and first check to see if we
+#       already have them defined.  Currently these constant functions get
+#       redefined every time we call nl2sol with the same residual and 
+#       jacobian function
 function nl2sol_set_functions(res, jac)
     wr = Symbol(string("nl2_", res))
     cr = Symbol(string(wr, "_cr"))
