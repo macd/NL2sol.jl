@@ -771,10 +771,23 @@ function runall()
         scale = 1.0
         for i in 1:s
             x_init = scale * x
-            nl_results = nl2sol(nlres, nljac, x_init, n; maxIter=400, quiet=true)
+            nl_results = "No NL2sol results available"
+            results = "No LM results available"
+            try
+                println("\nStarting NL2sol on problem $prb at scale $scale")
+                nl_results = nl2sol(nlres, nljac, x_init, n; 
+                                    maxIter=400, quiet=true)
+            catch exc
+                println("NL2sol exception $exc on problem $prb")
+            end
 
-            results = Optim.levenberg_marquardt(lmres, lmjac, x_init; 
-                                                maxIter=400, tolX=tolX)
+            try
+                println("\nStarting Levenberg Marquardt on problem  $prb at scale $scale")
+                results = Optim.levenberg_marquardt(lmres, lmjac, x_init; 
+                                                    maxIter=400, tolX=tolX)
+            catch exc
+                println("Levenberg Marquardt exception $exc on problem $prb")
+            end
 
             if !quiet
                 println("\nnl2sol on problem $prb at scale $scale")
