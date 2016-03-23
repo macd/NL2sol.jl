@@ -5,3 +5,4 @@
 *.gcno
 *.gcov
 build/
+test/nlresults.log

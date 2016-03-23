@@ -7,7 +7,8 @@ include("../src/NL2sol.jl")
 
 using NL2sol
 using Base.Test
-
+using Formatting
+using DataFrames
 
 # These are the problems we will run and the starting guesses for
 # the optimal solution.  We allocate r and j here only for levenberg_marquardt
@@ -16,7 +17,7 @@ using Base.Test
 const problems = Dict( 
      # problem      allocate r  allocate j     init X   rescale init X
     "rosenbrock" => (zeros(2), zeros(2, 2), [-1.2, 1.0], 3),
-    "helix" => (zeros(3), zeros(3, 3), [-1.0, 0.0, 0.0], 3),
+    "helix" => (zeros(3), zeros(3, 3), [-1.0e0, 0.0e0, 0.0e0], 3),
     "singular" => (zeros(4), zeros(4, 4), [3.0, -1.0, 0.0, 1.0], 3),
     "woods" => (zeros(7), zeros(7, 4), [-3.0, -1.0, -3.0, -1.0], 3),
     "zangwill" => (zeros(3), zeros(3, 3), [100., -1., 2.5], 1),
@@ -124,7 +125,12 @@ function singular_res(x, r)
 end
 
 function singular_jac(x, jac)
-    jac[:] = 0.0
+    #jac[:] = 0.0
+    for k in 1:4
+        for i in 1:4
+            jac[i, k] = 0.0
+        end
+    end
     jac[1, 1] = 1.0
     jac[1, 2] = 10.0
     jac[2, 3] = sqrt(5.0)
@@ -149,7 +155,12 @@ function woods_res(x, r)
 end
 
 function woods_jac(x, jac)
-    jac[:] = 0.0
+    #jac[:] = 0.0
+    for k in 1:4
+        for i in 1:7
+            jac[i, k] = 0.0
+        end
+    end
     jac[1, 1] = -20x[1]
     jac[1, 2] = 10.0
     jac[2, 1] = -1.0
@@ -204,7 +215,7 @@ end
 
 
 function zangwill_jac(x, jac)
-    jac[:] = 0.0
+    #jac[:] = 0.0
     for k = 1:3
         for i = 1:3
             jac[i, k] = 1.0
@@ -290,7 +301,11 @@ function cragg_levy_res(x, r)
 end
 
 function cragg_levy_jac(x, jac)
-    jac[:] = 0.0
+    for i = 1:5
+        for k = 1:4
+            jac[i, k] = 0.0
+        end
+    end
     t = exp(x[1])
     jac[1, 2] = -2.0 * (t - x[2])
     jac[1, 1] = -t * jac[1, 2]
@@ -383,7 +398,7 @@ function watson_jac(x, j, p)
     for i = 1:29
         ti = Float64(i) / 2.9e1
         r2 = x[1]
-        t= 1.e0
+        t = 1.e0
         for k = 2:p
              t = t*ti
              r2 = r2 + t*x[k]
@@ -412,6 +427,8 @@ end
 watson6_jac(x, j) = watson_jac(x, j, 6)
 watson9_jac(x, j) = watson_jac(x, j, 9)
 watson12_jac(x, j) = watson_jac(x, j, 12)
+# the Fortran drive and test code places a 15 iteration limit on 
+# watson20 while we do not.  That is the difference.
 watson20_jac(x, j) = watson_jac(x, j, 20)
 
 function chebyquad_res(x, r)
@@ -756,29 +773,87 @@ const working = cmplt
 # as does levenberg_marquardt.  Rather it has tests for the relative and 
 # absolute function convergence, so we don't mess with LM's tolG.
 const tolX = sqrt(0.999*eps())
-
 quiet = false
 
-# Still need to change this to check against the results in "paper_results.txt"
-function runall()
+conv = Dict(
+          3 => "x",
+          4 => "r",
+          5 => "b",
+          6 => "a",
+          7 => "s",
+          8 => "f",
+          9 => "e",
+         10 => "i"
+       )
 
+function dump(res, fname)
+    ios = open(fname, "w")
+    fs = "{1:s}, {2:d}, {3:d}, {4:d}, {5:d}, {6:d}, {7:s}, {8:.2e}, {9:.2e}, {10:.2e}\n"
+    sr = sortrows(res)
+    for i in 1:size(sr)[1]
+        write(ios, format(fs, replace(sr[i,1], r"_\d", ""), sr[i,2:end]...))
+    end
+    close(ios)
+end
+
+# To help in debugging NL2sol.  Only call on a single problem
+function runone(;prb="rosenbrock", scale=1.0)
+    nlres, nljac = nl2rj[prb]
+    r_init, j_init, x_init, s = problems[prb]
+    n = length(r_init)
+    p = length(x_init)
+    iv, v = set_defaults(n, p)
+    println("Running NL2sol on problem ", prb)
+    results = nl2sol(nlres, nljac, scale * x_init, n, iv, v)
+    println(return_code[iv[1]])
+    println(results)
+end
+
+function runall()
+    all_results = nothing
     for (prb, v) in problems
         nlres, nljac = nl2rj[prb]
         lmres, lmjac = lmrj[prb]
         r, j, x, s = v
         n = length(r)
-        
+        p = length(x)
         scale = 1.0
         for i in 1:s
             x_init = scale * x
             nl_results = "No NL2sol results available"
             results = "No LM results available"
-            try
-                println("\nStarting NL2sol on problem $prb at scale $scale")
-                nl_results = nl2sol(nlres, nljac, x_init, n; 
-                                    maxIter=400, quiet=true)
+            println("\nStarting NL2sol on problem $prb at scale $scale")
+            iv, v = set_defaults(n, p)
+            iv[21] = 0  # supress nl2sol output
+            try 
+                nl_results = nl2sol(nlres, nljac, x_init, n, iv, v)
             catch exc
+                println(exc)
                 println("NL2sol exception $exc on problem $prb")
+            end
+            # We subtract 1 from i (the scaling) to match the NL2sol paper
+            tag = string(prb, "_", i-1)
+
+            # t is the predicted relative function reduction.  Note that
+            # in Table II of the paper it is always positive.  However, 
+            # we find a few negative values.  These match the full Fortran 
+            # version when that is run, so I suspect that they only printed
+            # the abs() of this value in Table II, so that is what I do here
+            v[FUNCT0] > 0.0 ? t = abs(v[NREDUC] / v[FUNCT0]) : t = 1.0
+
+            # This summary line is meant to match "Table II Default NL2SOL"
+            # in "An Adaptive Nonlinear Least-Squares Algorithm", ie the
+            # algorithm paper.
+            # Remember to subtract out the number of function calls
+            # and gradient calls used to calculate the covarience..
+            nl = [tag, i-1, n, p, Int(iv[NFCALL] - iv[NFCOV]),
+                  Int(iv[NGCALL] - iv[NGCOV]), conv[Int(iv[1])],
+                  v[FUNCT], t, v[RELDX]]'
+
+            if all_results == nothing
+                all_results = nl
+            else
+                all_results = [all_results; nl]
             end
 
             try
@@ -786,6 +861,7 @@ function runall()
                 results = Optim.levenberg_marquardt(lmres, lmjac, x_init; 
                                                     maxIter=400, tolX=tolX)
             catch exc
+                println(exc)
                 println("Levenberg Marquardt exception $exc on problem $prb")
             end
 
@@ -799,7 +875,22 @@ function runall()
             scale *= 10.0
         end
     end
-    return true
+    dump(all_results, "nlresults.log")
+
+    origDF = readtable("nl2_results.txt", header=false)
+    newDF  = readtable("nlresults.log", header=false)
+    pass = true
+
+    # compare just a few results now.  Not all the parameters, or
+    # even the problem names, are the same between the Julia versions
+    # and the Fortran versions.  It goes without saying that this is
+    # incredibly brittle.
+    check = [(1,1), (5,5), (25, 29), (26, 30), (42, 46), (43, 47), (44, 48)]
+    for t in check
+        i, j = t
+        origDF[i, :] != newDF[j, :] ? pass = false : nothing
+    end
+    return pass
 end
 
 # There is a lot of noise from levenberg_marquardt, but oh well for now

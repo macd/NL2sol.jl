@@ -2,10 +2,11 @@ The original NL2SOL Fortran 77 source code appears as TOMS ALgorithm 573.
 As such, it is governed by the ACM licensing policy, which can be seen
 [here](http://www.acm.org/publications/policies/softwarecrnotice).
 
-The new code here are the cmake files, Julia wrapper code, and Julia
-test suite problems.  All of this code is covered by the MIT license, ie
+The new code here are all of the cmake files, the Julia wrapper code,
+and the Julia test suite problems.  All of this code is covered by the
+MIT license, ie
 
-Copyright (c) 2015 Don MacMillen
+Copyright (c) 2016 Don MacMillen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -5,14 +5,17 @@ import Optim
 using Lexicon
 using Docile
 
-export nl2sol
+export nl2sol, set_defaults, return_code, MXFCAL, MXITER, OUTLEV, PRUNIT
+export NFCALL, NGCALL, NITER, NFCOV, NGCOV, AFCTOL, RFCTOL, XCTOL, XFTOL
+export NREDUC, DGNORM, DSTNRM, PREDUC, RADIUS, FUNCT, FUNCT0, RELDX
+
 
 # OK, call me paranoid, but lets add some padding for NL2SOL
 const PADDING = 1000
 
 # NL2SOL Return codes
 const return_code = 
-    Dict{Int, ASCIIString}(3  => "x convergence",
+    Dict(3  => "x convergence",
          4  => "relative function convergence",
          5  => "both x and relative function convergence",
          6  => "absolute function convergence",
@@ -20,7 +23,12 @@ const return_code =
          8  => "false convergence",
          9  => "function evaluation limit",
          10 => "iteration limit",
-         11 => "internal stopx"
+         11 => "internal stopx",
+         13 => "f(x) cannot be computed at the initial x",
+         14 => "Bad parameters passed to assess",
+         15 => "The Jacobian could not be computed at x",
+         16 => "n or p out of range: p < 0 or n < p",
+         17 => "A restart was attempted with n, p changed"
     )
 
 # Input values stored in iv
@@ -45,8 +53,11 @@ const XFTOL  = 34   # false convergence default = 100*eps
 # Output values stored in v
 const DGNORM =  1
 const DSTNRM =  2
+const NREDUC =  6
+const PREDUC =  7
 const RADIUS =  8
 const FUNCT  = 10
+const FUNCT0 = 13
 const RELDX  = 17
 
 # Default values for convergence testing
@@ -57,15 +68,20 @@ const df_tolRelFunc = max(1e-10, eps()^(2/3))
 const df_maxIter = 400
 const df_maxFuncCall = 400
 
-# Note that the lib needs to be a constant
+# Note that the lib path needs to be a constant string
 if haskey(ENV, "NL2SOL_LIBPATH")
     const libnl2sol = joinpath(ENV["NL2SOL_LIBPATH"], "libnl2sol.so")
 else
     const libnl2sol = joinpath(Pkg.dir(), "NL2sol/deps/usr/lib/libnl2sol.so")
 end
 
-function nl2sol_set_defaults(iv, v)
+function set_defaults(n, p)
+    ivsize = p + 60 + PADDING
+    vsize = round(Int, 93 + n*(p + 3) + (3 * p * (p + 11))/2) + PADDING
+    iv = zeros(Int32, ivsize)
+    v  = zeros(Float64, vsize)
     ccall((:dfault_, libnl2sol), Void, (Ptr{Int32}, Ptr{Float64}), iv, v)
+    return iv, v
 end
 
 type NL2Array{T}
@@ -113,11 +129,11 @@ Base.endof(x::NL2Matrix) = length(x)
 Base.size(x::NL2Matrix) = (x.rows, x.cols)
 
 
-# TODO: we should cache these function defs and first check to see if we
-#       already have them defined.  Currently these constant functions get
-#       redefined every time we call nl2sol with the same residual and 
-#       jacobian function
+rescache = Dict()
 function nl2sol_set_functions(res, jac)
+    if haskey(rescache, res)
+        return rescache[res]
+    end
     wr = Symbol(string("nl2_", res))
     cr = Symbol(string(wr, "_cr"))
     wj = Symbol(string("nl2_", jac))
@@ -163,7 +179,9 @@ function nl2sol_set_functions(res, jac)
                                  Ptr{Float64}, 
                                  Ptr{Ptr{Void}}))
     end
-    return (eval(cr), eval(cj))
+    a, b = (eval(cr), eval(cj))
+    rescache[res] = (a, b)
+    return a, b
 end
 
 """
@@ -177,8 +195,8 @@ end
     allocated in the Julia function nl2sol before passing to the Fortran
     subroutine nl2sol.
 
-    NOTE: NL2sol does nasty pointer tricks that are liable to make programs
-          brittle, so don't do a "using NL2sol" in code you care about.
+    NOTE: NL2sol.jl does pointer tricks in order to interface with the
+          FORTRAN code, so tread lightly if you'd like to modify the code.
 
     EXAMPLE USAGE
 
@@ -207,28 +225,12 @@ end
     main()
 
 """
-function nl2sol(res::Function, jac::Function, init_x, n; 
-                tolX=df_tolX,  tolFalseX=df_tolFalseX, tolAbsFunc=df_tolAbsFunc,
-                tolRelFunc=df_tolRelFunc, maxIter=df_maxIter, 
-                maxFuncCall=df_maxFuncCall, quiet=true)
+function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
     p = length(init_x)
     x = copy(init_x)
     p_ = Int32(p)
     n_ = Int32(n)
 
-    ivsize = p + 60 + PADDING
-    vsize = round(Int, 93 + n*(p + 3) + (3 * p * (p + 11))/2) + PADDING
-    iv = zeros(Int32, ivsize)
-    v  = zeros(Float64, vsize)
-    nl2sol_set_defaults(iv, v)
-    # Set defaults
-    iv[MXITER] = maxIter
-    iv[MXFCAL] = maxFuncCall
-    v[XCTOL] = tolX
-    v[XFTOL] = tolFalseX
-    v[AFCTOL] = tolAbsFunc
-    v[RFCTOL] = tolRelFunc
-    quiet ? iv[PRUNIT] = 0 : nothing
     # Currently, we do not use any of these.
     uiparm = Array(Int32, 1)
     urparm = Float64[]
@@ -250,7 +252,6 @@ function nl2sol(res::Function, jac::Function, init_x, n;
 
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SOL memory corruption")
 
-    quiet || println("Convergence state: ", return_code[iv[1]])
     results = Optim.MultivariateOptimizationResults(
         "nl2sol",
          init_x,
@@ -268,6 +269,27 @@ function nl2sol(res::Function, jac::Function, init_x, n;
          Int(iv[NFCALL] - iv[NFCOV]),
          Int(iv[NGCALL] - iv[NGCOV])
     )
+    return results
+end
+
+# Convenience function for nl2sol.  Don't have to mess with iv and
+# v and can override some of the most common ways to control an optimization
+# algorithm.
+function nl2sol(res::Function, jac::Function, init_x, n; 
+                maxIter=df_maxIter, maxFuncCall=df_maxFuncCall, 
+                tolX=df_tolX,  tolAbsFunc=df_tolAbsFunc,
+                tolRelFunc=df_tolRelFunc, quiet=true)
+    p = length(init_x)
+    iv, v = set_defaults(n, p)
+    # Set defaults
+    iv[MXITER] = maxIter
+    iv[MXFCAL] = maxFuncCall
+    v[XCTOL] = tolX
+    v[AFCTOL] = tolAbsFunc
+    v[RFCTOL] = tolRelFunc
+    quiet ? iv[PRUNIT] = 0 : nothing
+    results = nl2sol(res, jac, init_x, n, iv, v)
+    quiet || println("Convergence state: ", return_code[iv[1]])
     return results
 end
 
