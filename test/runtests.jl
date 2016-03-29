@@ -802,7 +802,7 @@ function runone(;prb="rosenbrock", scale=1.0)
     r_init, j_init, x_init, s = problems[prb]
     n = length(r_init)
     p = length(x_init)
-    iv, v = set_defaults(n, p)
+    iv, v = nl2_set_defaults(n, p)
     println("Running NL2sol on problem ", prb)
     results = nl2sol(nlres, nljac, scale * x_init, n, iv, v)
     println(return_code[iv[1]])
@@ -823,8 +823,8 @@ function runall()
             nl_results = "No NL2sol results available"
             results = "No LM results available"
             println("\nStarting NL2sol on problem $prb at scale $scale")
-            iv, v = set_defaults(n, p)
-            iv[21] = 0  # supress nl2sol output
+            iv, v = nl2_set_defaults(n, p)
+            iv[PRUNIT] = 0  # supress nl2sol output
             try 
                 nl_results = nl2sol(nlres, nljac, x_init, n, iv, v)
             catch exc

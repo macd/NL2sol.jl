@@ -5,7 +5,7 @@ import Optim
 using Lexicon
 using Docile
 
-export nl2sol, set_defaults, return_code, MXFCAL, MXITER, OUTLEV, PRUNIT
+export nl2sol, nl2_set_defaults, return_code, MXFCAL, MXITER, OUTLEV, PRUNIT
 export NFCALL, NGCALL, NITER, NFCOV, NGCOV, AFCTOL, RFCTOL, XCTOL, XFTOL
 export NREDUC, DGNORM, DSTNRM, PREDUC, RADIUS, FUNCT, FUNCT0, RELDX
 
@@ -75,7 +75,7 @@ else
     const libnl2sol = joinpath(Pkg.dir(), "NL2sol/deps/usr/lib/libnl2sol.so")
 end
 
-function set_defaults(n, p)
+function nl2_set_defaults(n, p)
     ivsize = p + 60 + PADDING
     vsize = round(Int, 93 + n*(p + 3) + (3 * p * (p + 11))/2) + PADDING
     iv = zeros(Int32, ivsize)
@@ -97,11 +97,21 @@ Base.start(::NL2Array) = 1    #start(x::NL2Array) = 1
 Base.next(x::NL2Array, i) = (x[i], i+1)
 Base.done(x::NL2Array, i) = (i > length(x))
 
+# This is for debugging...
+Base.norm(x::NL2Array) = function norm(x::NL2Array)
+    n = 0.0
+    for i in 1:length(x)
+        n += x[i] ^ 2
+    end
+    return sqrt(n)
+end
+
 type NL2Matrix{T}
     p::Ptr{T}
     rows::Int32
     cols::Int32
 end
+
 
 Base.getindex(x::NL2Matrix, i, j) = unsafe_load(x.p, x.rows*(j - 1) + i)
 Base.getindex(x::NL2Matrix, i) = unsafe_load(x.p, i)  # as one-D
@@ -231,10 +241,11 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
     p_ = Int32(p)
     n_ = Int32(n)
 
-    # Currently, we do not use any of these.
+    # Currently, we do not use any of the u*parm arrays.
     uiparm = Array(Int32, 1)
     urparm = Float64[]
     ufparm = Array(Ptr{Void}, 1)
+
     nl2res, nl2jac = nl2sol_set_functions(res, jac)
 
     ccall((:nl2sol_, libnl2sol), Void,
@@ -272,15 +283,15 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
     return results
 end
 
-# Convenience function for nl2sol.  Don't have to mess with iv and
-# v and can override some of the most common ways to control an optimization
+# Convenience function for nl2sol.  Don't have to mess with iv and v but
+# can still override some of the most common ways to control an optimization
 # algorithm.
 function nl2sol(res::Function, jac::Function, init_x, n; 
                 maxIter=df_maxIter, maxFuncCall=df_maxFuncCall, 
                 tolX=df_tolX,  tolAbsFunc=df_tolAbsFunc,
                 tolRelFunc=df_tolRelFunc, quiet=true)
     p = length(init_x)
-    iv, v = set_defaults(n, p)
+    iv, v = nl2_set_defaults(n, p)
     # Set defaults
     iv[MXITER] = maxIter
     iv[MXFCAL] = maxFuncCall
