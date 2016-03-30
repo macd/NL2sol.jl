@@ -872,23 +872,23 @@ function runall()
             end
 
             # reset to defaults
-            iv, v = nl2_set_defaults(n, p)
-            iv[PRUNIT] = 0
-            sno_results = try
-                println("\nStarting NL2sno on problem  $prb at scale $scale")
-                nl2sno(nlres, x_init, n, iv, v)
-            catch exc
-                println(exc)
-                println("NL2sno exception $exc on problem $prb")
-            end
+            # iv, v = nl2_set_defaults(n, p)
+            # iv[PRUNIT] = 0
+            # sno_results = try
+            #     println("\nStarting NL2sno on problem  $prb at scale $scale")
+            #     nl2sno(nlres, x_init, n, iv, v)
+            # catch exc
+            #     println(exc)
+            #     println("NL2sno exception $exc on problem $prb")
+            # end
 
             if !quiet
                 println("\nnl2sol on problem $prb at scale $scale")
                 println(nl_results)
                 println("\nlevenberg-marquardt on problem $prb at scale $scale")
                 println(results)
-                println("\nNL2sno on problem $prb at scale $scale")
-                println(sno_results)
+                # println("\nNL2sno on problem $prb at scale $scale")
+                # println(sno_results)
             end
 
             scale *= 10.0
