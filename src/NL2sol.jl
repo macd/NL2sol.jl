@@ -136,7 +136,6 @@ function nl2_set_residual(res::Function)
         return rescache[res]
     end
     wr = Symbol(string("nl2_", res))
-    cr = Symbol(string(wr, "_cr"))
     # Wrap residual for the nl2sol/nl2sno calling signature
     func = quote
         function ($wr){T}(n_, p_, x_::Ptr{T}, nf_::Ptr{Int32}, r_::Ptr{T}, 
@@ -172,12 +171,11 @@ function nl2_set_residual(res::Function)
 end
 
 jaccache = Dict()
-function nl2_set_jacobian(jac::Function)
-    if haskey(jaccache, jac)
-        return jaccache[jac]
+function nl2_set_jacobian(jacobian::Function)
+    if haskey(jaccache, jacobian)
+        return jaccache[jacobian]
     end
-    wj = Symbol(string("nl2_", jac))
-    cj = Symbol(string(wj, "_cj"))
+    wj = Symbol(string("nl2_", jacobian))
         
     # Wrap jacobian for nl2sol calling signature
     nj = quote
@@ -186,19 +184,19 @@ function nl2_set_jacobian(jac::Function)
             p = unsafe_load(p_, 1)
             x = NL2Array(x_, p)
             jac = NL2Matrix(jac_, n, p)
-            ($jac)(x, jac)
+            ($jacobian)(x, jac)
             return
         end
     end
     nlj = eval(nj)
 
     # Now make a C callable function        
-    const j = cfunction(nlj, Void, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
+    const jc = cfunction(nlj, Void, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
                                     Ptr{Int32}, Ptr{Float64}, Ptr{Int32},
                                     Ptr{Float64}, Ptr{Ptr{Void}}))
 
-    jaccache[jac] = j
-    return j
+    jaccache[jacobian] = jc
+    return jc
 end
 
 type NL2Results{T}
