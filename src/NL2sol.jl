@@ -5,15 +5,14 @@ import Optim
 using Lexicon
 using Docile
 
-export nl2sol, nl2_set_defaults, return_code, MXFCAL, MXITER, OUTLEV, PRUNIT
-export NFCALL, NGCALL, NITER, NFCOV, NGCOV, AFCTOL, RFCTOL, XCTOL, XFTOL
+export nl2sol, nl2sno, nl2_set_defaults, return_code, MXFCAL, MXITER, OUTLEV
+export PRUNIT, NFCALL, NGCALL, NITER, NFCOV, NGCOV, AFCTOL, RFCTOL, XCTOL, XFTOL
 export NREDUC, DGNORM, DSTNRM, PREDUC, RADIUS, FUNCT, FUNCT0, RELDX
-
 
 # OK, call me paranoid, but lets add some padding for NL2SOL
 const PADDING = 1000
 
-# NL2SOL Return codes
+# NL2SOL Return codes.  Returned in iv[1]
 const return_code = 
     Dict(3  => "x convergence",
          4  => "relative function convergence",
@@ -77,7 +76,7 @@ end
 
 function nl2_set_defaults(n, p)
     ivsize = p + 60 + PADDING
-    vsize = round(Int, 93 + n*(p + 3) + (3 * p * (p + 11))/2) + PADDING
+    vsize = ceil(Int, 93 + n*(p + 3) + (3 * p * (p + 11))/2) + PADDING
     iv = zeros(Int32, ivsize)
     v  = zeros(Float64, vsize)
     ccall((:dfault_, libnl2sol), Void, (Ptr{Int32}, Ptr{Float64}), iv, v)
@@ -112,7 +111,6 @@ type NL2Matrix{T}
     cols::Int32
 end
 
-
 Base.getindex(x::NL2Matrix, i, j) = unsafe_load(x.p, x.rows*(j - 1) + i)
 Base.getindex(x::NL2Matrix, i) = unsafe_load(x.p, i)  # as one-D
 Base.setindex!(x::NL2Matrix, y, i, j) = unsafe_store!(x.p, y, x.rows*(j - 1) + i)
@@ -127,49 +125,62 @@ Base.unsafe_store!(x::Ptr{Float64}, val::Float64, ::Colon) =
         end
     end
 
-Base.unsafe_store!(x::Ptr{Float64}, val::Float64, I::UnitRange{Int}) =
-    function unsafe_store!(x::Ptr{Float64}, val::Float64, I::UnitRange{Int})
-        for i in I
-            unsafe_store!(x, val, i)
-        end
-    end
 
 Base.length(x::NL2Matrix) = x.rows * x.cols
 Base.endof(x::NL2Matrix) = length(x)
 Base.size(x::NL2Matrix) = (x.rows, x.cols)
 
-
 rescache = Dict()
-function nl2sol_set_functions(res, jac)
+function nl2_set_residual(res::Function)
     if haskey(rescache, res)
         return rescache[res]
     end
     wr = Symbol(string("nl2_", res))
     cr = Symbol(string(wr, "_cr"))
-    wj = Symbol(string("nl2_", jac))
-    cj = Symbol(string(wj, "_cj"))
-    @eval begin
-        # Wrap residual for nl2sol calling signature
-        function ($wr){T}(n_, p_, x_::Ptr{T}, nf_, r_::Ptr{T}, uiparm, urparm, ufparm)
+    # Wrap residual for the nl2sol/nl2sno calling signature
+    func = quote
+        function ($wr){T}(n_, p_, x_::Ptr{T}, nf_::Ptr{Int32}, r_::Ptr{T}, 
+                          uiparm, urparm, ufparm)
             n = unsafe_load(n_, 1)
             p = unsafe_load(p_, 1)
             x = NL2Array(x_, p)
             r = NL2Array(r_, n)
-            ($res)(x, r)
+            # If the residual calculation raises a DomainError, we have taken 
+            # a step inside of NL2SOL that is too big.  By setting nf_ to zero,
+            # we are telling it to take a smaller step
+            try
+                ($res)(x, r)
+            catch y
+                if isa(y, DomainError)
+                    unsafe_store!(nf_, Int32(0))
+                else
+                    throw(y)
+                end
+            end
             return
         end
-        # Now make it C (actually Fortran) callable
-        const $(cr) = cfunction(($wr), Void, 
-                                (Ptr{Int32},
-                                 Ptr{Int32}, 
-                                 Ptr{Float64}, 
-                                 Ptr{Int32}, 
-                                 Ptr{Float64}, 
-                                 Ptr{Int32}, 
-                                 Ptr{Float64}, 
-                                 Ptr{Ptr{Void}}))
+    end
+    nlf = eval(func)
 
-        # Wrap jacobian for nl2sol calling signature
+    # Now make it C (actually Fortran) callable
+    const nr = cfunction(nlf, Void, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64}, 
+                                     Ptr{Int32}, Ptr{Float64}, Ptr{Int32}, 
+                                     Ptr{Float64}, Ptr{Ptr{Void}}))
+
+    rescache[res] = nr
+    return nr
+end
+
+jaccache = Dict()
+function nl2_set_jacobian(jac::Function)
+    if haskey(jaccache, jac)
+        return jaccache[jac]
+    end
+    wj = Symbol(string("nl2_", jac))
+    cj = Symbol(string(wj, "_cj"))
+        
+    # Wrap jacobian for nl2sol calling signature
+    nj = quote
         function ($wj){T}(n_, p_, x_::Ptr{T}, nf_, jac_::Ptr{T}, uiparm, urparm, ufparm)
             n = unsafe_load(n_, 1)
             p = unsafe_load(p_, 1)
@@ -178,21 +189,76 @@ function nl2sol_set_functions(res, jac)
             ($jac)(x, jac)
             return
         end
-        # and make it C callable
-        const $(cj) = cfunction($(wj), Void, 
-                                (Ptr{Int32}, 
-                                 Ptr{Int32}, 
-                                 Ptr{Float64}, 
-                                 Ptr{Int32}, 
-                                 Ptr{Float64}, 
-                                 Ptr{Int32}, 
-                                 Ptr{Float64}, 
-                                 Ptr{Ptr{Void}}))
     end
-    a, b = (eval(cr), eval(cj))
-    rescache[res] = (a, b)
-    return a, b
+    nlj = eval(nj)
+
+    # Now make a C callable function        
+    const j = cfunction(nlj, Void, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
+                                    Ptr{Int32}, Ptr{Float64}, Ptr{Int32},
+                                    Ptr{Float64}, Ptr{Ptr{Void}}))
+
+    jaccache[jac] = j
+    return j
 end
+
+type NL2Results{T}
+    algorithm::AbstractString
+    initial_x::T
+    final_x::T
+    rcode::AbstractString
+end
+
+
+function nl2sno(res::Function, init_x, n, iv, v)
+    p = length(init_x)
+    x = copy(init_x)
+
+    # These need to be 32 bit ints for nl2sol
+    p_ = Int32(p)   
+    n_ = Int32(n)
+
+    # Currently, we do not use any of the u*parm arrays.  (They are only
+    # in NL2SOL because Fortran did not have closures)
+    uiparm = Array(Int32, 1)
+    urparm = Float64[]
+    ufparm = Array(Ptr{Void}, 1)
+    nl2res = nl2_set_residual(res)
+
+    ccall((:nl2sno_, libnl2sol), Void,
+        (Ptr{Int32},
+         Ptr{Int32},
+         Ptr{Float64},
+         Ptr{Void},
+         Ptr{Int32},
+         Ptr{Float64},
+         Ptr{Int32},
+         Ptr{Float64},
+         Ptr{Void}),
+         &n_, &p_, x, nl2res, iv, v, uiparm, urparm, ufparm)
+
+    (iv[end] != 0 || v[end] != 0.0) && error("NL2SNO memory corruption")
+
+    results = Optim.MultivariateOptimizationResults(
+        "nl2sno",
+         init_x,
+         x,
+         v[FUNCT],
+         Int(iv[NITER]),
+         Int(iv[NITER]) >= Int(iv[MXFCAL]),
+         Int(iv[1]) == 3 || Int(iv[1]) == 5,
+         v[RELDX],
+         Int(iv[1]) == 4 || Int(iv[1]) == 6,
+         0.0, 
+         false,
+         0.0,
+         Optim.OptimizationTrace(),
+         # TODO: check these against paper
+         Int(iv[NFCALL] - iv[NFCOV]),
+         Int(iv[NGCALL] - iv[NGCOV])
+    )
+    return results
+end
+
 
 """
     nl2sol solves the non-linear least squares problem.  That is, it finds
@@ -246,10 +312,11 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
     urparm = Float64[]
     ufparm = Array(Ptr{Void}, 1)
 
-    nl2res, nl2jac = nl2sol_set_functions(res, jac)
+    nl2res = nl2_set_residual(res)
+    nl2jac = nl2_set_jacobian(jac)
 
     ccall((:nl2sol_, libnl2sol), Void,
-        (Ptr{Int32},    # many need to change this to Tuple{Type1, Type2,...}
+        (Ptr{Int32},
          Ptr{Int32},
          Ptr{Float64},
          Ptr{Void},

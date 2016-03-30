@@ -811,6 +811,9 @@ end
 
 function runall()
     all_results = nothing
+    subset = Dict()
+    subset["brown30"] = problems["brown30"]
+    #for (prb, v) in problems
     for (prb, v) in problems
         nlres, nljac = nl2rj[prb]
         lmres, lmjac = lmrj[prb]
@@ -822,16 +825,19 @@ function runall()
             x_init = scale * x
             nl_results = "No NL2sol results available"
             results = "No LM results available"
-            println("\nStarting NL2sol on problem $prb at scale $scale")
+            sno_results = "No NL2sno results available"
             iv, v = nl2_set_defaults(n, p)
             iv[PRUNIT] = 0  # supress nl2sol output
-            try 
-                nl_results = nl2sol(nlres, nljac, x_init, n, iv, v)
+
+            nl_results = try 
+                println("\nStarting NL2sol on problem $prb at scale $scale")
+                nl2sol(nlres, nljac, x_init, n, iv, v)
             catch exc
                 println(exc)
-                println("NL2sol exception $exc on problem $prb")
+                println("NL2sol exception $exc on problem $prb")            
             end
-            # We subtract 1 from i (the scaling) to match the NL2sol paper
+
+            # # We subtract 1 from i (the scaling) to match the NL2sol paper
             tag = string(prb, "_", i-1)
 
             # t is the predicted relative function reduction.  Note that
@@ -856,13 +862,24 @@ function runall()
                 all_results = [all_results; nl]
             end
 
-            try
+            results = try
                 println("\nStarting Levenberg Marquardt on problem  $prb at scale $scale")
-                results = Optim.levenberg_marquardt(lmres, lmjac, x_init; 
-                                                    maxIter=400, tolX=tolX)
+                Optim.levenberg_marquardt(lmres, lmjac, x_init; 
+                                          maxIter=400, tolX=tolX)
             catch exc
                 println(exc)
                 println("Levenberg Marquardt exception $exc on problem $prb")
+            end
+
+            # reset to defaults
+            iv, v = nl2_set_defaults(n, p)
+            iv[PRUNIT] = 0
+            sno_results = try
+                println("\nStarting NL2sno on problem  $prb at scale $scale")
+                nl2sno(nlres, x_init, n, iv, v)
+            catch exc
+                println(exc)
+                println("NL2sno exception $exc on problem $prb")
             end
 
             if !quiet
@@ -870,6 +887,8 @@ function runall()
                 println(nl_results)
                 println("\nlevenberg-marquardt on problem $prb at scale $scale")
                 println(results)
+                println("\nNL2sno on problem $prb at scale $scale")
+                println(sno_results)
             end
 
             scale *= 10.0
@@ -886,8 +905,7 @@ function runall()
     # and the Fortran versions.  It goes without saying that this is
     # incredibly brittle.
     check = [(1,1), (5,5), (25, 29), (26, 30), (42, 46), (43, 47), (44, 48)]
-    for t in check
-        i, j = t
+    for (i, j) in check
         origDF[i, :] != newDF[j, :] ? pass = false : nothing
     end
     return pass

@@ -123,7 +123,8 @@ c
 c        ***  initialize scale vector d to ones for computing
 c        ***  initial jacobian.
          if (iv(dtype) .gt. 0) call vscopy(p, v(d1), one)
-       if (v(dinit).gt.zero) call vscopy(p, v(d1), v(dinit))
+c       if (v(dinit).gt.zero) call vscopy(p, v(d1), v(dinit))
+       if (v(dinit).gt.rmdcon(4)) call vscopy(p, v(d1), v(dinit))
 c
  10   nf = iv(nfcall)
       call calcr(n, p, x, nf, v(r1), uiparm, urparm, ufparm)
