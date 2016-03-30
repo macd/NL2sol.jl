@@ -15,7 +15,7 @@ subroutine nl2sol.
 NOTE: NL2sol.jl does some pointer tricks in order to interface with the
       FORTRAN code, so tread lightly if you'd like to modify the code.
 
-## EXAMPLE USAGE
+## EXAMPLE USAGE NL2sol.nl2sol
 
     using NL2sol
 
@@ -36,6 +36,31 @@ NOTE: NL2sol.jl does some pointer tricks in order to interface with the
     function main()
         println("NL2SOL on Rosenbrock")
         result = nl2sol(rosenbrock_res, rosenbrock_jac, [-1.2, 1.0], 2; quiet=true)
+        println(result)
+    end
+
+    main()
+
+Alternatively, if you do not have or do not want to write a jacobian, you can
+use nl2sno, which uses a finite difference approximation to the jacobian.  Even
+if you do have the jacobian available, nl2sno can be used to check for its 
+correctness.  In this case, you must provide the iv and v arrays (see below).
+A complete example would look like:
+
+## EXAMPLE USAGE NL2sol.nl2sno
+
+    using NL2sol
+
+    function rosenbrock_res(x, r)
+        r[1] = 10.0 * (x[2] - x[1]^2 )
+        r[2] = 1.0 - x[1]
+        return r
+    end
+
+    function main()
+        println("NL2nso on Rosenbrock")
+        iv, v = nl2_set_defaults(2, 2)
+        result = nl2sno(rosenbrock_res, [-1.2, 1.0], 2, iv, v)
         println(result)
     end
 
@@ -107,12 +132,8 @@ like
 
 The advantage of this form is that all of the control and tuning
 parameters of NL2sol are available by changing some of the values in
-the iv and/or v arrays.  They are well documented in the 'program
-paper' above.
-
-The original NL2SOL also includes NL2SNO, which uses differences to
-calculate the jacobian but this has not been made visible in the
-interface.
+the iv and/or v arrays.  Also available are more status values in
+these arrays. They are well documented in the 'program paper' above.
 
 As an optimization solution, this would compete most directly with the
 levenberg\_marquardt from the Optim module.  It differs from that
@@ -128,9 +149,6 @@ guess is far from the optimim point.
 
   * Only a linux version, compiled on Ubuntu 14.04 is currently available. But the cmake
 build scripts should work on other Linux machines. Windows might be a challenge.
-
-  * nl2sno, which calculates the jacobian by finite differences, has not
-been exported.
 
   * nl2itr, which uses "reverse communication" to request residual and jacobian
 updates, has not been exported.
