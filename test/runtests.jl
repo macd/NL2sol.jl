@@ -807,13 +807,23 @@ function runone(;prb="rosenbrock", scale=1.0)
     results = nl2sol(nlres, nljac, scale * x_init, n, iv, v)
     println(return_code[iv[1]])
     println(results)
+
+    nl2_reset_defaults!(iv, v)
+    println("Running NL2sno on problem ", prb)
+    sno_results = nl2sno(nlres, scale * x_init, n, iv, v)
+    println(return_code[iv[1]])
+    println(sno_results)
+
 end
 
 function runall()
+    # So it turns out that if we run the nl2sno tests, then we will crash
+    # deep, deep within garbage collecion or get a corrupted double linked list
+    # message from glibc.  If we disable garbage collection and use the newly
+    # added nl2_reset_defaults! for nl2sno instead of allocating new ones, then
+    # this set of tests will run to completion about 1/2 the time.
+    gc_enable(false)
     all_results = nothing
-    subset = Dict()
-    subset["brown30"] = problems["brown30"]
-    #for (prb, v) in problems
     for (prb, v) in problems
         nlres, nljac = nl2rj[prb]
         lmres, lmjac = lmrj[prb]
@@ -829,7 +839,7 @@ function runall()
             iv, v = nl2_set_defaults(n, p)
             iv[PRUNIT] = 0  # supress nl2sol output
 
-            nl_results = try 
+            nl_results = try
                 println("\nStarting NL2sol on problem $prb at scale $scale")
                 nl2sol(nlres, nljac, x_init, n, iv, v)
             catch exc
@@ -871,24 +881,23 @@ function runall()
                 println("Levenberg Marquardt exception $exc on problem $prb")
             end
 
-            # reset to defaults
-            # iv, v = nl2_set_defaults(n, p)
-            # iv[PRUNIT] = 0
-            # sno_results = try
-            #     println("\nStarting NL2sno on problem  $prb at scale $scale")
-            #     nl2sno(nlres, x_init, n, iv, v)
-            # catch exc
-            #     println(exc)
-            #     println("NL2sno exception $exc on problem $prb")
-            # end
+            nl2_reset_defaults!(iv, v)
+            iv[PRUNIT] = 0
+            sno_results = try
+                println("\nStarting NL2sno on problem  $prb at scale $scale")
+                nl2sno(nlres, x_init, n, iv, v)
+            catch exc
+                println(exc)
+                println("NL2sno exception $exc on problem $prb")
+            end
 
             if !quiet
                 println("\nnl2sol on problem $prb at scale $scale")
                 println(nl_results)
                 println("\nlevenberg-marquardt on problem $prb at scale $scale")
                 println(results)
-                # println("\nNL2sno on problem $prb at scale $scale")
-                # println(sno_results)
+                println("\nNL2sno on problem $prb at scale $scale")
+                println(sno_results)
             end
 
             scale *= 10.0

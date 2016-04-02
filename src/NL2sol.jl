@@ -5,7 +5,7 @@ import Optim
 using Lexicon
 using Docile
 
-export nl2sol, nl2sno, nl2_set_defaults, return_code, MXFCAL, MXITER, OUTLEV
+export nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!, return_code, MXFCAL, MXITER, OUTLEV
 export PRUNIT, NFCALL, NGCALL, NITER, NFCOV, NGCOV, AFCTOL, RFCTOL, XCTOL, XFTOL
 export NREDUC, DGNORM, DSTNRM, PREDUC, RADIUS, FUNCT, FUNCT0, RELDX
 
@@ -72,6 +72,12 @@ if haskey(ENV, "NL2SOL_LIBPATH")
     const libnl2sol = joinpath(ENV["NL2SOL_LIBPATH"], "libnl2sol.so")
 else
     const libnl2sol = joinpath(Pkg.dir(), "NL2sol/deps/usr/lib/libnl2sol.so")
+end
+
+function nl2_reset_defaults!(iv, v)
+    iv[:] = 0
+    v[:] = 0.0
+    ccall((:dfault_, libnl2sol), Void, (Ptr{Int32}, Ptr{Float64}), iv, v)
 end
 
 function nl2_set_defaults(n, p)
