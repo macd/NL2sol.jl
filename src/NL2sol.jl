@@ -136,12 +136,14 @@ Base.length(x::NL2Matrix) = x.rows * x.cols
 Base.endof(x::NL2Matrix) = length(x)
 Base.size(x::NL2Matrix) = (x.rows, x.cols)
 
-rescache = Dict()
 function nl2_set_residual(res::Function)
-    if haskey(rescache, res)
-        return rescache[res]
-    end
-    wr = Symbol(string("nl2_", res))
+    # Have tried function cacheing here in the past but probably too 
+    # dangerous for by chance (or programmtically generated names) may get
+    # same name with different definition.  Also, if we try to redefine even
+    # with a new function definition, commit 89424cc05a3fae94221efc45f24f924a75d2f58a
+    # causes some kind of corruption on the call to the redefined function 
+    # (not the first one), so just make certain to have a unique name now.
+    wr = Symbol(string("nl2_", res, randstring(5)))
     # Wrap residual for the nl2sol/nl2sno calling signature
     func = quote
         function ($wr){T}(n_, p_, x_::Ptr{T}, nf_::Ptr{Int32}, r_::Ptr{T}, 
@@ -172,16 +174,12 @@ function nl2_set_residual(res::Function)
                                      Ptr{Int32}, Ptr{Float64}, Ptr{Int32}, 
                                      Ptr{Float64}, Ptr{Ptr{Void}}))
 
-    rescache[res] = nr
     return nr
 end
 
-jaccache = Dict()
 function nl2_set_jacobian(jacobian::Function)
-    if haskey(jaccache, jacobian)
-        return jaccache[jacobian]
-    end
-    wj = Symbol(string("nl2_", jacobian))
+    # See comments above on names
+    wj = Symbol(string("nl2_", jacobian, randstring(5)))
         
     # Wrap jacobian for nl2sol calling signature
     nj = quote
@@ -200,8 +198,6 @@ function nl2_set_jacobian(jacobian::Function)
     const jc = cfunction(nlj, Void, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
                                     Ptr{Int32}, Ptr{Float64}, Ptr{Int32},
                                     Ptr{Float64}, Ptr{Ptr{Void}}))
-
-    jaccache[jacobian] = jc
     return jc
 end
 
