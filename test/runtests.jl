@@ -798,22 +798,28 @@ function dump(res, fname)
 end
 
 # To help in debugging NL2sol.  Only call on a single problem
-function runone(;prb="rosenbrock", scale=1.0)
+function runone(;prb="rosenbrock", scale=1.0, mxfc=200, mxiter=200, sno=false)
     nlres, nljac = nl2rj[prb]
     r_init, j_init, x_init, s = problems[prb]
     n = length(r_init)
     p = length(x_init)
     iv, v = nl2_set_defaults(n, p)
+    iv[MXFCAL] = mxfc
+    iv[MXITER] = mxiter
     println("Running NL2sol on problem ", prb)
     results = nl2sol(nlres, nljac, scale * x_init, n, iv, v)
     println(return_code[iv[1]])
     println(results)
 
-    nl2_reset_defaults!(iv, v)
-    println("Running NL2sno on problem ", prb)
-    sno_results = nl2sno(nlres, scale * x_init, n, iv, v)
-    println(return_code[iv[1]])
-    println(sno_results)
+    if sno
+        nl2_reset_defaults!(iv, v)
+        iv[MXFCAL] = mxfc
+        iv[MXITER] = mxiter
+        println("Running NL2sno on problem ", prb)
+        sno_results = nl2sno(nlres, scale * x_init, n, iv, v)
+        println(return_code[iv[1]])
+        println(sno_results)
+    end
 
 end
 
@@ -823,7 +829,7 @@ function runall()
     # message from glibc.  If we disable garbage collection and use the newly
     # added nl2_reset_defaults! for nl2sno instead of allocating new ones, then
     # this set of tests will run to completion about 1/2 the time.
-    gc_enable(false)
+    #gc_enable(false)
     all_results = nothing
     for (prb, v) in problems
         nlres, nljac = nl2rj[prb]
@@ -838,8 +844,13 @@ function runall()
             results = "No LM results available"
             sno_results = "No NL2sno results available"
             iv, v = nl2_set_defaults(n, p)
+            # meyer needs larger limits
+            if prb == "meyer"
+                iv[MXFCAL] = 350
+                iv[MXITER] = 350
+            end
             iv[PRUNIT] = 0  # supress nl2sol output
-
+            
             nl_results = try
                 println("\nStarting NL2sol on problem $prb at scale $scale")
                 nl2sol(nlres, nljac, x_init, n, iv, v)
