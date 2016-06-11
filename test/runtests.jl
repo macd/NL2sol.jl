@@ -428,8 +428,8 @@ end
 watson6_jac(x, j) = watson_jac(x, j, 6)
 watson9_jac(x, j) = watson_jac(x, j, 9)
 watson12_jac(x, j) = watson_jac(x, j, 12)
-# the Fortran drive and test code places a 15 iteration limit on 
-# watson20 while we do not.  That is the difference.
+# the Fortran driver and test code places a 15 iteration limit on 
+# watson20 so we will do so as well to match.
 watson20_jac(x, j) = watson_jac(x, j, 20)
 
 function chebyquad_res(x, r)
@@ -848,6 +848,9 @@ function runall()
             if prb == "meyer"
                 iv[MXFCAL] = 350
                 iv[MXITER] = 350
+            elseif prb == "watson20"
+                # match the fortran test driver
+                iv[MXITER] = 15
             end
             iv[PRUNIT] = 0  # supress nl2sol output
             
