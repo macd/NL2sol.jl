@@ -2,6 +2,10 @@ module NL2sol
 import Base
 import Optim
 
+type NL2 <: Optim.Optimizer
+    name::String
+end
+
 using Lexicon
 using Docile
 
@@ -238,6 +242,9 @@ function nl2sno(res::Function, init_x, n, iv, v)
 
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SNO memory corruption")
 
+    sno = NL2("nl2sno")
+    trace = Optim.OptimizationTrace(sno)
+    
     results = Optim.MultivariateOptimizationResults(
         "nl2sno",
          init_x,
@@ -251,7 +258,7 @@ function nl2sno(res::Function, init_x, n, iv, v)
          0.0, 
          false,
          0.0,
-         Optim.OptimizationTrace(),
+         trace,
          # TODO: check these against paper
          Int(iv[NFCALL] - iv[NFCOV]),
          Int(iv[NGCALL] - iv[NGCOV])
@@ -330,6 +337,9 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
 
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SOL memory corruption")
 
+    sol = NL2("nl2sol")
+    trace = Optim.OptimizationTrace(sol)
+    
     results = Optim.MultivariateOptimizationResults(
         "nl2sol",
          init_x,
@@ -343,7 +353,7 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
          0.0, 
          false,
          0.0,
-         Optim.OptimizationTrace(),
+         trace,
          Int(iv[NFCALL] - iv[NFCOV]),
          Int(iv[NGCALL] - iv[NGCOV])
     )
