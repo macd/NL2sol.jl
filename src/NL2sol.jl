@@ -1,20 +1,60 @@
 module NL2sol
 import Base
-import Optim
-
-type NL2 <: Optim.Optimizer
-    name::String
-end
 
 using Lexicon
 using Docile
 
-export nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!, return_code, MXFCAL, MXITER, OUTLEV
-export PRUNIT, NFCALL, NGCALL, NITER, NFCOV, NGCOV, AFCTOL, RFCTOL, XCTOL, XFTOL
-export NREDUC, DGNORM, DSTNRM, PREDUC, RADIUS, FUNCT, FUNCT0, RELDX
+export nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!, return_code
+export MXFCAL, MXITER, OUTLEV, PRUNIT, NFCALL, NGCALL, NITER, NFCOV, NGCOV
+export AFCTOL, RFCTOL, XCTOL, XFTOL, NREDUC, DGNORM, DSTNRM, PREDUC, RADIUS
+export FUNCT, FUNCT0, RELDX
 
 # OK, call me paranoid, but lets add some padding for NL2SOL
 const PADDING = 1000
+
+# Borrowed from Optim so we don't have a dependency
+type NL2OptimizationResults{T, N}
+    method::String
+    initial_x::Array{T, N}
+    minimum::Array{T, N}
+    f_minimum::Float64
+    iterations::Int
+    iteration_converged::Bool
+    x_converged::Bool
+    x_tol::Float64
+    f_converged::Bool
+    f_tol::Float64
+    g_converged::Bool
+    g_tol::Float64
+    f_calls::Int
+    g_calls::Int
+end
+
+function Base.show(io::IO, r::NL2OptimizationResults)
+    @printf io "Results of Optimization Algorithm\n"
+    @printf io " * Algorithm: %s\n" r.method
+
+    if length(join(r.initial_x, ",")) < 40
+        @printf io " * Starting Point: [%s]\n" join(r.initial_x, ",")
+    else
+        @printf io " * Starting Point: [%s, ...]\n" join(r.initial_x[1:2], ",")
+    end
+    if length(join(r.minimum, ",")) < 40
+        @printf io " * Minimizer: [%s]\n" join(r.minimum, ",")
+    else
+        @printf io " * Minimizer: [%s, ...]\n" join(r.minimum[1:2], ",")
+    end
+    @printf io " * Minimum: %e\n" r.f_minimum
+    @printf io " * Iterations: %d\n" r.iterations
+    @printf io " * Convergence: %s\n" r.x_converged || r.f_converged || r.g_converged
+    @printf io "   * |x - x'| < %.1e: %s\n" r.x_tol r.x_converged
+    @printf io "   * |f(x) - f(x')| / |f(x)| < %.1e: %s\n" r.f_tol r.f_converged
+    @printf io "   * |g(x)| < %.1e: %s\n" r.g_tol r.g_converged
+    @printf io "   * Reached Maximum Number of Iterations: %s\n" r.iteration_converged
+    @printf io " * Objective Function Calls: %d\n" r.f_calls
+    @printf io " * Gradient Calls: %d\n" r.g_calls
+    return
+end
 
 # NL2SOL Return codes.  Returned in iv[1]
 const return_code = 
@@ -242,10 +282,7 @@ function nl2sno(res::Function, init_x, n, iv, v)
 
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SNO memory corruption")
 
-    sno = NL2("nl2sno")
-    trace = Optim.OptimizationTrace(sno)
-    
-    results = Optim.MultivariateOptimizationResults(
+    results = NL2OptimizationResults(
         "nl2sno",
          init_x,
          x,
@@ -258,7 +295,6 @@ function nl2sno(res::Function, init_x, n, iv, v)
          0.0, 
          false,
          0.0,
-         trace,
          # TODO: check these against paper
          Int(iv[NFCALL] - iv[NFCOV]),
          Int(iv[NGCALL] - iv[NGCOV])
@@ -337,10 +373,7 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
 
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SOL memory corruption")
 
-    sol = NL2("nl2sol")
-    trace = Optim.OptimizationTrace(sol)
-    
-    results = Optim.MultivariateOptimizationResults(
+    results = NL2OptimizationResults(
         "nl2sol",
          init_x,
          x,
@@ -353,10 +386,9 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
          0.0, 
          false,
          0.0,
-         trace,
          Int(iv[NFCALL] - iv[NFCOV]),
          Int(iv[NGCALL] - iv[NGCOV])
-    )
+                                  )
     return results
 end
 

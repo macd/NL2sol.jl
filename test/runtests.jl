@@ -8,7 +8,7 @@ include("../src/NL2sol.jl")
 using NL2sol
 using Base.Test
 using Formatting
-brokenDataFrames = true
+brokenDataFrames = false
 !brokenDataFrames && using DataFrames
 
 # These are the problems we will run and the starting guesses for
@@ -923,7 +923,7 @@ function runall()
     end
     dump(all_results, "nlresults.log")
 
-    # OK DataFrames is currently broken on 0.5 dev
+    # OK DataFrames is now working
     brokenDataFrames && return true
     
     origDF = readtable("nl2_results.txt", header=false)
