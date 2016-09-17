@@ -1,8 +1,9 @@
 module NL2sol
 import Base
 
-using Lexicon
-using Docile
+# These are frequently not up to date with the dev version of Julia
+#using Lexicon
+#using Docile
 
 export nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!, return_code
 export MXFCAL, MXITER, OUTLEV, PRUNIT, NFCALL, NGCALL, NITER, NFCOV, NGCOV
