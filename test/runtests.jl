@@ -8,7 +8,7 @@ include("../src/NL2sol.jl")
 using NL2sol
 using Base.Test
 using Formatting
-brokenDataFrames = false
+brokenDataFrames = true
 !brokenDataFrames && using DataFrames
 
 # These are the problems we will run and the starting guesses for
@@ -54,10 +54,10 @@ lmrj = Dict()
 
 # We need to wrap these functions for Optim.levenberg_marquardt
 for (k, v) in problems
-    res = symbol(string(k, "_res"))
-    lmres = symbol(string("wr_", k, "_res"))
-    jac = symbol(string(k, "_jac"))
-    lmjac = symbol(string("wr_", k, "_jac"))
+    res = Symbol(string(k, "_res"))
+    lmres = Symbol(string("wr_", k, "_res"))
+    jac = Symbol(string(k, "_jac"))
+    lmjac = Symbol(string("wr_", k, "_jac"))
     @eval begin
         function ($lmres)(x)
             ($res)(x, $(v[1]))
@@ -746,7 +746,7 @@ nl2rj = Dict()
 
 # Collect the residual and jacobian functions for nl2sol
 for (k, v) in problems
-    nl2rj[k] = (eval(symbol(string(k, "_res"))), eval(symbol(string(k, "_jac"))))
+    nl2rj[k] = (eval(Symbol(string(k, "_res"))), eval(Symbol(string(k, "_jac"))))
 end
 
 
