@@ -14,7 +14,7 @@ export FUNCT, FUNCT0, RELDX
 const PADDING = 1000
 
 # Borrowed from Optim so we don't have a dependency
-type NL2OptimizationResults{T, N}
+mutable struct NL2OptimizationResults{T, N}
     method::String
     initial_x::Array{T, N}
     minimum::Array{T, N}
@@ -134,7 +134,7 @@ function nl2_set_defaults(n, p)
     return iv, v
 end
 
-type NL2Array{T}
+mutable struct NL2Array{T}
     p::Ptr{T}
     rows::Int32
 end
@@ -156,7 +156,7 @@ Base.norm(x::NL2Array) = function norm(x::NL2Array)
     return sqrt(n)
 end
 
-type NL2Matrix{T}
+mutable struct NL2Matrix{T}
     p::Ptr{T}
     rows::Int32
     cols::Int32
@@ -246,7 +246,7 @@ function nl2_set_jacobian(jacobian::Function)
     return jc
 end
 
-type NL2Results{T}
+mutable struct NL2Results{T}
     algorithm::AbstractString
     initial_x::T
     final_x::T
