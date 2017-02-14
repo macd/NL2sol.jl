@@ -145,9 +145,9 @@ guess is far from the optimim point.
 
 ## Limitations
 
-  * Only supported in Julia 0.4 and 0.5
+  * Only supported in Julia 0.6 (dev).
 
-  * Only a linux version, compiled on Ubuntu 14.04 is currently available. But the cmake
+  * Only a linux version, compiled on Ubuntu 16.04 is currently available. But the cmake
 build scripts should work on other Linux machines. Windows might be a challenge.
 
   * nl2itr, which uses "reverse communication" to request residual and jacobian
