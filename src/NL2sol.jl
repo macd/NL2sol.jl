@@ -352,9 +352,9 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
     n_ = Int32(n)
 
     # Currently, we do not use any of the u*parm arrays.
-    uiparm = Array(Int32, 1)
+    uiparm = Array{Int32}(1)
     urparm = Float64[]
-    ufparm = Array(Ptr{Void}, 1)
+    ufparm = Array{Ptr{Void}}(1)
 
     nl2res = nl2_set_residual(res)
     nl2jac = nl2_set_jacobian(jac)

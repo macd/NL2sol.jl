@@ -1,4 +1,4 @@
-import Optim
+import LsqFit
 
 # Uncomment these if running tests in relative directories (or rather,
 # comment them out if testing installed NL2sol)
@@ -52,7 +52,7 @@ const problems = Dict(
 
 lmrj = Dict()
 
-# We need to wrap these functions for Optim.levenberg_marquardt
+# We need to wrap these functions for LsqFit.levenberg_marquardt
 for (k, v) in problems
     res = Symbol(string(k, "_res"))
     lmres = Symbol(string("wr_", k, "_res"))
@@ -892,7 +892,7 @@ function runall()
             
             results = try
                 println("\nStarting Levenberg Marquardt on problem  $prb at scale $scale")
-                Optim.levenberg_marquardt(lmres, lmjac, x_init; 
+                LsqFit.levenberg_marquardt(lmres, lmjac, x_init; 
                                           maxIter=400, tolX=tolX)
             catch exc
                 println(exc)
