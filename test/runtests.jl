@@ -1,4 +1,8 @@
-import LsqFit
+#using Optim.levenberg_marquardt
+#using Optim
+
+# at some point we need to switch...
+using LsqFit.levenberg_marquardt
 
 # Uncomment these if running tests in relative directories (or rather,
 # comment them out if testing installed NL2sol)
@@ -8,9 +12,20 @@ include("../src/NL2sol.jl")
 using NL2sol
 using Base.Test
 using Formatting
-brokenDataFrames = true
+brokenDataFrames = false
 !brokenDataFrames && using DataFrames
 
+# convert the optim multivariate results to a local version that
+# can be pretty printed.
+function convert_results(r)
+    nl_results = NL2sol.NL2OptimizationResults(string(r.method), r.initial_x,
+                                               r.minimizer, r.minimum, r.iterations,
+                                               r.iteration_converged, r.x_converged, r.x_tol,
+                                               r.f_converged, r.f_tol, r.g_converged, r.g_tol,
+                                               r.f_calls, r.g_calls)
+    return nl_results
+end
+                                        
 # These are the problems we will run and the starting guesses for
 # the optimal solution.  We allocate r and j here only for levenberg_marquardt
 # (We need them for the closures).  The Julia function nl2sol will allocate 
@@ -52,7 +67,7 @@ const problems = Dict(
 
 lmrj = Dict()
 
-# We need to wrap these functions for LsqFit.levenberg_marquardt
+# We need to wrap these functions for levenberg_marquardt
 for (k, v) in problems
     res = Symbol(string(k, "_res"))
     lmres = Symbol(string("wr_", k, "_res"))
@@ -71,8 +86,8 @@ end
 
 
 function rosenbrock_res(x, r)
-    r[1] = 10. * (x[2] - x[1]^2 )
-    r[2] = 1. - x[1]
+    r[1] = 10.0 * (x[2] - x[1]^2 )
+    r[2] = 1.0 - x[1]
     return r
 end
 
@@ -310,7 +325,7 @@ function cragg_levy_jac(x, jac)
     t = exp(x[1])
     jac[1, 2] = -2.0 * (t - x[2])
     jac[1, 1] = -t * jac[1, 2]
-    jac[2, 2] = 30. * (x[2] - x[3])^2
+    jac[2, 2] = 30.0 * (x[2] - x[3])^2
     jac[2, 3] = -jac[2, 2]
     jac[3, 3] = 2.0*sin(x[3] - x[4]) / (cos(x[3] - x[4]))^3
     jac[3, 4] = -jac[3, 3]
@@ -336,7 +351,7 @@ function box_res(x, r)
         t1 > expmin ? e1 = exp(t1) : e1 = 0.0
         t2 = ti*x[2]
         t2 > expmin ? e2 = exp(t2) : e2 = 0.0
-        r[i] = (e1 - e2) - x[3]*(exp(ti) - exp(10.*ti))
+        r[i] = (e1 - e2) - x[3]*(exp(ti) - exp(10.0 * ti))
     end
     return r
 end
@@ -350,7 +365,7 @@ function box_jac(x, jac)
         t = x[2] * ti
         t > expmin ? e = exp(t) : e = 0.0
         jac[i, 2] = -ti * e
-        jac[i, 3] = exp(10.*ti) - exp(ti)
+        jac[i, 3] = exp(10.0 * ti) - exp(ti)
     end
     return jac
 end
@@ -892,8 +907,8 @@ function runall()
             
             results = try
                 println("\nStarting Levenberg Marquardt on problem  $prb at scale $scale")
-                LsqFit.levenberg_marquardt(lmres, lmjac, x_init; 
-                                          maxIter=400, tolX=tolX)
+                levenberg_marquardt(lmres, lmjac, x_init; 
+                                    maxIter=400, tolX=tolX)
             catch exc
                 println(exc)
                 println("Levenberg Marquardt exception $exc on problem $prb")
@@ -913,7 +928,8 @@ function runall()
                 println("\nnl2sol on problem $prb at scale $scale")
                 println(nl_results)
                 println("\nlevenberg-marquardt on problem $prb at scale $scale")
-                println(results)
+                #println(results)
+                println(convert_results(results))
                 # println("\nNL2sno on problem $prb at scale $scale")
                 # println(sno_results)
             end
@@ -938,6 +954,7 @@ function runall()
     for (i, j) in check
         origDF[i, :] != newDF[j, :] ? pass = false : nothing
     end
+    println("Passed subset of NL2sol paper results")
     return pass
 end
 

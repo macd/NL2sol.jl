@@ -1,6 +1,2 @@
-julia 0.4-
-Lexicon
-Docile
-Optim
-Formatting
-DataFrames
+julia 0.7-
+LsqFit   # only for testing
