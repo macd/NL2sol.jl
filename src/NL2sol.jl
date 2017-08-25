@@ -212,9 +212,9 @@ function nl2_set_residual(res::Function)
     nlf = eval(func)
 
     # Now make it C (actually Fortran) callable
-    const nr = cfunction(nlf, Void, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64}, 
+    const nr = cfunction(nlf, Void, Tuple{Ptr{Int32}, Ptr{Int32}, Ptr{Float64}, 
                                      Ptr{Int32}, Ptr{Float64}, Ptr{Int32}, 
-                                     Ptr{Float64}, Ptr{Ptr{Void}}))
+                                     Ptr{Float64}, Ptr{Ptr{Void}}})
 
     return nr
 end
@@ -237,9 +237,9 @@ function nl2_set_jacobian(jacobian::Function)
     nlj = eval(nj)
 
     # Now make a C callable function        
-    const jc = cfunction(nlj, Void, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
+    const jc = cfunction(nlj, Void, Tuple{Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
                                     Ptr{Int32}, Ptr{Float64}, Ptr{Int32},
-                                    Ptr{Float64}, Ptr{Ptr{Void}}))
+                                    Ptr{Float64}, Ptr{Ptr{Void}}})
     return jc
 end
 
