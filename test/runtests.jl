@@ -1,8 +1,11 @@
-#using Optim.levenberg_marquardt
-#using Optim
+# levenberg_marquardt is actually pretty simple _but_
+# LsqFit pulls in a bunch of stuff which is broken
+# right now
+use_levenberg = false
+use_levenberg && using LsqFit.levenberg_marquardt
 
-# at some point we need to switch...
-using LsqFit.levenberg_marquardt
+# the finite difference derivatives do nasty things...
+use_nl2sno = false
 
 # Uncomment these if running tests in relative directories (or rather,
 # comment them out if testing installed NL2sol)
@@ -12,8 +15,10 @@ include("../src/NL2sol.jl")
 using NL2sol
 using Base.Test
 using Formatting
-brokenDataFrames = false
-!brokenDataFrames && using DataFrames
+
+# Often DataFrames is borked in the dev stream
+use_DataFrames = false
+use_DataFrames && using DataFrames
 
 # convert the optim multivariate results to a local version that
 # can be pretty printed.
@@ -906,32 +911,39 @@ function runall()
             end
             
             results = try
-                println("\nStarting Levenberg Marquardt on problem  $prb at scale $scale")
-                levenberg_marquardt(lmres, lmjac, x_init; 
-                                    maxIter=400, tolX=tolX)
+                if use_levenberg
+                    println("\nStarting Levenberg Marquardt on problem  $prb at scale $scale")
+                    levenberg_marquardt(lmres, lmjac, x_init; 
+                                        maxIter=400, tolX=tolX)
+                end
             catch exc
                 println(exc)
                 println("Levenberg Marquardt exception $exc on problem $prb")
             end
 
-            # nl2_reset_defaults!(iv, v)
-            # iv[PRUNIT] = 0
-            # sno_results = try
-            #     println("\nStarting NL2sno on problem  $prb at scale $scale")
-            #     nl2sno(nlres, x_init, n, iv, v)
-            # catch exc
-            #     println(exc)
-            #     println("NL2sno exception $exc on problem $prb")
-            # end
+            if use_nl2sno
+                nl2_reset_defaults!(iv, v)
+                iv[PRUNIT] = 0
+                sno_results = try
+                    println("\nStarting NL2sno on problem  $prb at scale $scale")
+                    nl2sno(nlres, x_init, n, iv, v)
+                catch exc
+                    println(exc)
+                    println("NL2sno exception $exc on problem $prb")
+                end
+            end
 
             if !quiet
                 println("\nnl2sol on problem $prb at scale $scale")
                 println(nl_results)
-                println("\nlevenberg-marquardt on problem $prb at scale $scale")
-                #println(results)
-                println(convert_results(results))
-                # println("\nNL2sno on problem $prb at scale $scale")
-                # println(sno_results)
+                if use_levenberg
+                    println("\nlevenberg-marquardt on problem $prb at scale $scale")
+                    println(convert_results(results))
+                end
+                if use_nl2sno
+                    println("\nNL2sno on problem $prb at scale $scale")
+                    println(sno_results)
+                end
             end
 
             scale *= 10.0
@@ -939,8 +951,7 @@ function runall()
     end
     dump(all_results, "nlresults.log")
 
-    # OK DataFrames is now working
-    brokenDataFrames && return true
+    ! use_DataFrames && return true
     
     origDF = readtable("nl2_results.txt", header=false)
     newDF  = readtable("nlresults.log", header=false)

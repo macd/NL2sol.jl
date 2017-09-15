@@ -267,8 +267,8 @@ function nl2sno(res::Function, init_x, n, iv, v)
     nl2res = nl2_set_residual(res)
 
     ccall((:nl2sno_, libnl2sol), Void,
-        (Ptr{Int32},
-         Ptr{Int32},
+        (Ref{Int32},
+         Ref{Int32},
          Ptr{Float64},
          Ptr{Void},
          Ptr{Int32},
@@ -276,7 +276,7 @@ function nl2sno(res::Function, init_x, n, iv, v)
          Ptr{Int32},
          Ptr{Float64},
          Ptr{Void}),
-         &n_, &p_, x, nl2res, iv, v, uiparm, urparm, ufparm)
+         n_, p_, x, nl2res, iv, v, uiparm, urparm, ufparm)
 
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SNO memory corruption")
 
@@ -357,8 +357,8 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
     nl2jac = nl2_set_jacobian(jac)
 
     ccall((:nl2sol_, libnl2sol), Void,
-        (Ptr{Int32},
-         Ptr{Int32},
+        (Ref{Int32},
+         Ref{Int32},
          Ptr{Float64},
          Ptr{Void},
          Ptr{Void},
@@ -367,7 +367,7 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
          Ptr{Int32},
          Ptr{Float64},
          Ptr{Void}),
-         &n_, &p_, x, nl2res, nl2jac, iv, v, uiparm, urparm, ufparm)
+         n_, p_, x, nl2res, nl2jac, iv, v, uiparm, urparm, ufparm)
 
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SOL memory corruption")
 
