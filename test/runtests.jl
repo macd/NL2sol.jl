@@ -1,11 +1,11 @@
 # levenberg_marquardt is actually pretty simple _but_
 # LsqFit pulls in a bunch of stuff which is broken
 # right now
-use_levenberg = false
+use_levenberg = "use_levenberg" in ARGS
 use_levenberg && using LsqFit.levenberg_marquardt
 
 # the finite difference derivatives do nasty things...
-use_nl2sno = false
+use_nl2sno = "use_nl2sno" in ARGS
 
 # Uncomment these if running tests in relative directories (or rather,
 # comment them out if testing installed NL2sol)
@@ -17,7 +17,7 @@ using Base.Test
 using Formatting
 
 # Often DataFrames is borked in the dev stream
-use_DataFrames = false
+use_DataFrames = "use_DataFrames" in ARGS
 use_DataFrames && using DataFrames
 
 # convert the optim multivariate results to a local version that
@@ -849,7 +849,7 @@ function runall()
     # message from glibc.  If we disable garbage collection and use the newly
     # added nl2_reset_defaults! for nl2sno instead of allocating new ones, then
     # this set of tests will run to completion about 1/2 the time.
-    #gc_enable(false)
+    use_nl2sno && gc_enable(false)
     all_results = nothing
     for (prb, v) in problems
         nlres, nljac = nl2rj[prb]
@@ -966,6 +966,7 @@ function runall()
         origDF[i, :] != newDF[j, :] ? pass = false : nothing
     end
     println("Passed subset of NL2sol paper results")
+    #gc_enable(true)  # we get farther, generally, if we don't re-enable.  Why?
     return pass
 end
 

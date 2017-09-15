@@ -250,7 +250,6 @@ mutable struct NL2Results{T}
     rcode::AbstractString
 end
 
-
 function nl2sno(res::Function, init_x, n, iv, v)
     p = length(init_x)
     x = copy(init_x)
@@ -261,9 +260,9 @@ function nl2sno(res::Function, init_x, n, iv, v)
 
     # Currently, we do not use any of the u*parm arrays.  (They are only
     # in NL2SOL because Fortran did not have closures)
-    uiparm = Array(Int32, 1)
+    uiparm = Int32[]
     urparm = Float64[]
-    ufparm = Array(Ptr{Void}, 1)
+    ufparm = Array{Ptr{Void}}(1)
     nl2res = nl2_set_residual(res)
 
     ccall((:nl2sno_, libnl2sol), Void,
