@@ -7,12 +7,18 @@ use_levenberg && using LsqFit.levenberg_marquardt
 # the finite difference derivatives do nasty things...
 use_nl2sno = "use_nl2sno" in ARGS
 
-# Uncomment these if running tests in relative directories (or rather,
-# comment them out if testing installed NL2sol)
-ENV["NL2SOL_LIBPATH"] = "../deps/usr/lib"
-include("../src/NL2sol.jl")
+# use the installed NL2sol instead of local dev one
+use_installed = "use_installed" in ARGS
+if use_installed
+    using NL2sol
+else
+    ENV["NL2SOL_LIBPATH"] = "../deps/usr/lib"
+    include("../src/NL2sol.jl")
+    import NL2sol: nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!,
+                   PRUNIT, MXITER, MXFCAL, FUNCT0, NREDUC, NFCALL, NFCOV,
+                   NGCALL, NGCOV, FUNCT, RELDX
+end
 
-using NL2sol
 using Base.Test
 using Formatting
 
@@ -966,7 +972,7 @@ function runall()
         origDF[i, :] != newDF[j, :] ? pass = false : nothing
     end
     println("Passed subset of NL2sol paper results")
-    #gc_enable(true)  # we get farther, generally, if we don't re-enable.  Why?
+    #gc_enable(true)  # we get farther using nl2sno, generally, if we don't re-enable.  Why?
     return pass
 end
 
