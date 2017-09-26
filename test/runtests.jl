@@ -14,9 +14,9 @@ if use_installed
 else
     ENV["NL2SOL_LIBPATH"] = "../deps/usr/lib"
     include("../src/NL2sol.jl")
-    import NL2sol: nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!,
-                   PRUNIT, MXITER, MXFCAL, FUNCT0, NREDUC, NFCALL, NFCOV,
-                   NGCALL, NGCOV, FUNCT, RELDX
+    import Main.NL2sol: nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!,
+                        PRUNIT, MXITER, MXFCAL, FUNCT0, NREDUC, NFCALL, NFCOV,
+                        NGCALL, NGCOV, FUNCT, RELDX
 end
 
 using Base.Test
