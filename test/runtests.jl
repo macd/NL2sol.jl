@@ -19,7 +19,7 @@ else
                         NGCALL, NGCOV, FUNCT, RELDX
 end
 
-using Base.Test
+using Test
 using Formatting
 
 # Often DataFrames is borked in the dev stream
