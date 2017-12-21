@@ -1,5 +1,6 @@
 module NL2sol
 import Base
+using Printf
 
 export nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!, return_code
 export MXFCAL, MXITER, OUTLEV, PRUNIT, NFCALL, NGCALL, NITER, NFCOV, NGCOV
@@ -118,7 +119,7 @@ end
 function nl2_reset_defaults!(iv, v)
     iv[:] = 0
     v[:] = 0.0
-    ccall((:dfault_, libnl2sol), Void, (Ptr{Int32}, Ptr{Float64}), iv, v)
+    ccall((:dfault_, libnl2sol), Nothing, (Ptr{Int32}, Ptr{Float64}), iv, v)
 end
 
 function nl2_set_defaults(n, p)
@@ -126,7 +127,7 @@ function nl2_set_defaults(n, p)
     vsize = ceil(Int, 93 + n*(p + 3) + (3 * p * (p + 11))/2) + PADDING
     iv = zeros(Int32, ivsize)
     v  = zeros(Float64, vsize)
-    ccall((:dfault_, libnl2sol), Void, (Ptr{Int32}, Ptr{Float64}), iv, v)
+    ccall((:dfault_, libnl2sol), Nothing, (Ptr{Int32}, Ptr{Float64}), iv, v)
     return iv, v
 end
 
@@ -212,7 +213,7 @@ function nl2_set_residual(res::Function)
     nlf = eval(func)
 
     # Now make it C (actually Fortran) callable
-    nr = cfunction(nlf, Void, Tuple{Ptr{Int32}, Ptr{Int32}, Ptr{Float64}, 
+    nr = cfunction(nlf, Nothing, Tuple{Ptr{Int32}, Ptr{Int32}, Ptr{Float64}, 
                                     Ptr{Int32}, Ptr{Float64}, Ptr{Int32}, 
                                     Ptr{Float64}, Ptr{Ptr{Void}}})
 
@@ -237,7 +238,7 @@ function nl2_set_jacobian(jacobian::Function)
     nlj = eval(nj)
 
     # Now make a C callable function        
-    jc = cfunction(nlj, Void, Tuple{Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
+    jc = cfunction(nlj, Nothing, Tuple{Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
                                     Ptr{Int32}, Ptr{Float64}, Ptr{Int32},
                                     Ptr{Float64}, Ptr{Ptr{Void}}})
     return jc
@@ -265,16 +266,16 @@ function nl2sno(res::Function, init_x, n, iv, v)
     ufparm = Array{Ptr{Void}}(1)
     nl2res = nl2_set_residual(res)
 
-    ccall((:nl2sno_, libnl2sol), Void,
+    ccall((:nl2sno_, libnl2sol), Nothing,
         (Ref{Int32},
          Ref{Int32},
          Ptr{Float64},
-         Ptr{Void},
+         Ptr{Nothing},
          Ptr{Int32},
          Ptr{Float64},
          Ptr{Int32},
          Ptr{Float64},
-         Ptr{Void}),
+         Ptr{Nothing}),
          n_, p_, x, nl2res, iv, v, uiparm, urparm, ufparm)
 
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SNO memory corruption")
@@ -350,22 +351,22 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
     # Currently, we do not use any of the u*parm arrays.
     uiparm = Array{Int32}(uninitialized, 1)
     urparm = Float64[]
-    ufparm = Array{Ptr{Void}}(uninitialized, 1)
+    ufparm = Array{Ptr{Nothing}}(uninitialized, 1)
 
     nl2res = nl2_set_residual(res)
     nl2jac = nl2_set_jacobian(jac)
 
-    ccall((:nl2sol_, libnl2sol), Void,
+    ccall((:nl2sol_, libnl2sol), Nothing,
         (Ref{Int32},
          Ref{Int32},
          Ptr{Float64},
-         Ptr{Void},
-         Ptr{Void},
+         Ptr{Nothing},
+         Ptr{Nothing},
          Ptr{Int32},
          Ptr{Float64},
          Ptr{Int32},
          Ptr{Float64},
-         Ptr{Void}),
+         Ptr{Nothing}),
          n_, p_, x, nl2res, nl2jac, iv, v, uiparm, urparm, ufparm)
 
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SOL memory corruption")
