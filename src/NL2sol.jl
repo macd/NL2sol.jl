@@ -1,6 +1,7 @@
 module NL2sol
 import Base
 using Printf
+using Random
 
 export nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!, return_code
 export MXFCAL, MXITER, OUTLEV, PRUNIT, NFCALL, NGCALL, NITER, NFCOV, NGCOV
