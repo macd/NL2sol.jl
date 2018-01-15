@@ -216,7 +216,7 @@ function nl2_set_residual(res::Function)
     # Now make it C (actually Fortran) callable
     nr = cfunction(nlf, Nothing, Tuple{Ptr{Int32}, Ptr{Int32}, Ptr{Float64}, 
                                     Ptr{Int32}, Ptr{Float64}, Ptr{Int32}, 
-                                    Ptr{Float64}, Ptr{Ptr{Void}}})
+                                    Ptr{Float64}, Ptr{Ptr{Nothing}}})
 
     return nr
 end
@@ -241,7 +241,7 @@ function nl2_set_jacobian(jacobian::Function)
     # Now make a C callable function        
     jc = cfunction(nlj, Nothing, Tuple{Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
                                     Ptr{Int32}, Ptr{Float64}, Ptr{Int32},
-                                    Ptr{Float64}, Ptr{Ptr{Void}}})
+                                    Ptr{Float64}, Ptr{Ptr{Nothing}}})
     return jc
 end
 
@@ -264,7 +264,7 @@ function nl2sno(res::Function, init_x, n, iv, v)
     # in NL2SOL because Fortran did not have closures)
     uiparm = Int32[]
     urparm = Float64[]
-    ufparm = Array{Ptr{Void}}(1)
+    ufparm = Array{Ptr{Nothing}}(1)
     nl2res = nl2_set_residual(res)
 
     ccall((:nl2sno_, libnl2sol), Nothing,
