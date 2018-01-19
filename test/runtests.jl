@@ -1,3 +1,4 @@
+using Printf
 # levenberg_marquardt is actually pretty simple _but_
 # LsqFit pulls in a bunch of stuff which is broken
 # right now
@@ -20,7 +21,6 @@ else
 end
 
 using Test
-using Formatting
 
 # Often DataFrames is borked in the dev stream
 use_DataFrames = "use_DataFrames" in ARGS
@@ -815,10 +815,10 @@ conv = Dict(
 
 function dump(res, fname)
     ios = open(fname, "w")
-    fs = "{1:s}, {2:d}, {3:d}, {4:d}, {5:d}, {6:d}, {7:s}, {8:.2e}, {9:.2e}, {10:.2e}\n"
     sr = sortrows(res)
     for i in 1:size(sr)[1]
-        write(ios, format(fs, replace(sr[i,1], r"_\d", ""), sr[i,2:end]...))
+        @printf(ios, "%s, %d, %d, %d, %d, %d, %s, %9.3e, %9.3e, %9.3e\n",
+                replace(sr[i,1], r"_\d" => ""), sr[i,2:end]...)
     end
     close(ios)
 end
