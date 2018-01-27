@@ -2,6 +2,7 @@ module NL2sol
 import Base
 using Printf
 using Random
+using LinearAlgebra
 
 export nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!, return_code
 export MXFCAL, MXITER, OUTLEV, PRUNIT, NFCALL, NGCALL, NITER, NFCOV, NGCOV
@@ -146,7 +147,7 @@ Base.next(x::NL2Array, i) = (x[i], i+1)
 Base.done(x::NL2Array, i) = (i > length(x))
 
 # This is for debugging...
-Base.norm(x::NL2Array) = function norm(x::NL2Array)
+LinearAlgebra.norm(x::NL2Array) = function norm(x::NL2Array)
     n = 0.0
     for i in 1:length(x)
         n += x[i] ^ 2
