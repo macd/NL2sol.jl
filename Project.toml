@@ -1,2 +1,6 @@
 name = "NL2sol"
 uuid = "2fe4ca64-33e0-11e8-0d29-fd842786b1cb"
+version = "0.1.0"
+authors = ["Don MacMillen <don@macmillen.net>"]
+
+[deps]
