@@ -122,7 +122,7 @@ end
 function nl2_reset_defaults!(iv, v)
     iv[:] = 0
     v[:] = 0.0
-    ccall((:dfault_, libnl2sol), Nothing, (Ptr{Int32}, Ptr{Float64}), iv, v)
+    ccall((:dfault_, libnl2sol), Cvoid, (Ref{Int32}, Ref{Float64}), iv, v)
 end
 
 function nl2_set_defaults(n, p)
@@ -130,28 +130,32 @@ function nl2_set_defaults(n, p)
     vsize = ceil(Int, 93 + n*(p + 3) + (3 * p * (p + 11))/2) + PADDING
     iv = zeros(Int32, ivsize)
     v  = zeros(Float64, vsize)
-    ccall((:dfault_, libnl2sol), Nothing, (Ptr{Int32}, Ptr{Float64}), iv, v)
+    ccall((:dfault_, libnl2sol), Cvoid, (Ref{Int32}, Ref{Float64}), iv, v)
     return iv, v
 end
 
-mutable struct NL2Array{T}
+mutable struct NL2Vector{T}
     p::Ptr{T}
-    rows::Int32
+    count::Int32
 end
 
-Base.getindex(x::NL2Array, i) = unsafe_load(x.p, i)
-Base.setindex!(x::NL2Array, y, i) = unsafe_store!(x.p, y, i)
-Base.length(x::NL2Array) = x.rows
-Base.endof(x::NL2Array) = length(x)
-Base.start(::NL2Array) = 1    #start(x::NL2Array) = 1
-Base.next(x::NL2Array, i) = (x[i], i+1)
-Base.done(x::NL2Array, i) = (i > length(x))
+Base.getindex(x::NL2Vector, i) = unsafe_load(x.p, i)
+Base.setindex!(x::NL2Vector, y, i) = unsafe_store!(x.p, y, i)
+Base.length(x::NL2Vector) = x.count
+
+# Base.endof(x::NL2Vector) = length(x)
+# Base.start(::NL2Vector) = 1    #start(x::NL2Vector) = 1
+# Base.next(x::NL2Vector, i) = (x[i], i+1)
+# Base.done(x::NL2Vector, i) = (i > length(x))
+
+Base.iterate(NV::NL2Vector, i=1) = i > NV.count ? nothing : (NV[i], i+1)
+
 
 # This is for debugging...
-LinearAlgebra.norm(x::NL2Array) = function norm(x::NL2Array)
+LinearAlgebra.norm(x::NL2Vector) = function norm(x::NL2Vector)
     n = 0.0
-    for i in 1:length(x)
-        n += x[i] ^ 2
+    for v in x
+        n += v ^ 2
     end
     return sqrt(n)
 end
@@ -167,12 +171,12 @@ Base.getindex(x::NL2Matrix, i) = unsafe_load(x.p, i)  # as one-D
 Base.setindex!(x::NL2Matrix, y, i, j) = unsafe_store!(x.p, y, x.rows*(j - 1) + i)
 Base.setindex!(x::NL2Matrix, y, i) = unsafe_store!(x.p, y, i) # as one-D
 
-# living on the edge...  This is to make x[:] = 0.0 work for the NL2 types
-Base.unsafe_store!(x::Ptr{Float64}, val::Float64, ::Colon) =
-    function unsafe_store!(x::Ptr{Float64}, val::Float64, ::Colon)
+# living on the edge...  This is to make x[:] = 0.0 work for NL2Vector
+Base.unsafe_store!(x::NL2Vector{T}, val::T, ::Colon) where {T} =
+    function unsafe_store!(x::NL2Vector{T}, val::T, ::Colon) where {T}
         l = length(x)
         for i = 1:l
-            unsafe_store!(x, val, i)
+            unsafe_store!(x.p, val, i)
         end
     end
 
@@ -189,15 +193,15 @@ function nl2_set_residual(res::Function)
     # commit 89424cc05a3fae94221efc45f24f924a75d2f58a
     # causes some kind of corruption on the call to the redefined function 
     # (not the first one), so just make certain to have a unique name now.
-    wr = Symbol(string("nl2_", res, randstring(5)))
+    wr = Symbol(string("nl2_", res, "_", randstring(5)))
     # Wrap residual for the nl2sol/nl2sno calling signature
     func = quote
-        function ($wr)(n_, p_, x_::Ptr{T}, nf_::Ptr{Int32}, r_::Ptr{T}, 
-                          uiparm, urparm, ufparm) where {T}
+        function ($wr)(n_, p_, x_::Ref{Float64}, nf_::Ref{Int32}, r_::Ref{Float64}, 
+                          uiparm, urparm, ufparm)
             n = unsafe_load(n_, 1)
             p = unsafe_load(p_, 1)
-            x = NL2Array(x_, p)
-            r = NL2Array(r_, n)
+            x = NL2Vector(x_, p)
+            r = NL2Vector(r_, n)
             # If the residual calculation raises a DomainError, we have taken 
             # a step inside of NL2SOL that is too big.  By setting nf_ to zero,
             # we are telling it to take a smaller step
@@ -215,24 +219,36 @@ function nl2_set_residual(res::Function)
     end
     nlf = eval(func)
 
-    # Now make it C (actually Fortran) callable
-    nr = cfunction(nlf, Nothing, Tuple{Ptr{Int32}, Ptr{Int32}, Ptr{Float64}, 
-                                    Ptr{Int32}, Ptr{Float64}, Ptr{Int32}, 
-                                    Ptr{Float64}, Ptr{Ptr{Nothing}}})
+    # Using the new 0.7 / 1.0 form as a macro results in nlf not being
+    # defined unless we interpolate it into the macro call.  This is
+    # discussed in the manual in the chaper "Calling C and Fortran Code"
+    # in section "Closure cfunctions".
+    # I also needed to use Ptr{...} rather than Ref{...}, otherwise we get
+    # a hard crash.
+    nr = @cfunction($nlf, Cvoid, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64}, 
+                                  Ptr{Int32}, Ptr{Float64}, Ptr{Int32}, 
+                                  Ptr{Float64}, Ptr{Ptr{Cvoid}}))
 
     return nr
 end
 
 function nl2_set_jacobian(jacobian::Function)
     # See comments above on names
-    wj = Symbol(string("nl2_", jacobian, randstring(5)))
+    wj = Symbol(string("nl2_", jacobian, "_", randstring(5)))
         
     # Wrap jacobian for nl2sol calling signature
     nj = quote
-        function ($wj)(n_, p_, x_::Ptr{T}, nf_, jac_::Ptr{T}, uiparm, urparm, ufparm) where {T}
+        function ($wj)(n_::Ptr{Int32},
+                       p_::Ptr{Int32},
+                       x_::Ref{T},
+                       nf_::Ptr{Int32},
+                       jac_::Ref{T},
+                       uiparm::Ptr{Int32},
+                       urparm::Ptr{Float64},
+                       ufparm::Ptr{Ptr{Nothing}}) where {T}
             n = unsafe_load(n_, 1)
             p = unsafe_load(p_, 1)
-            x = NL2Array(x_, p)
+            x = NL2Vector(x_, p)
             jac = NL2Matrix(jac_, n, p)
             ($jacobian)(x, jac)
             return
@@ -240,10 +256,11 @@ function nl2_set_jacobian(jacobian::Function)
     end
     nlj = eval(nj)
 
-    # Now make a C callable function        
-    jc = cfunction(nlj, Nothing, Tuple{Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
+    # see comments above
+    jc = @cfunction($nlj, Nothing, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
                                     Ptr{Int32}, Ptr{Float64}, Ptr{Int32},
-                                    Ptr{Float64}, Ptr{Ptr{Nothing}}})
+                                    Ptr{Float64}, Ptr{Ptr{Nothing}}))
+    
     return jc
 end
 
@@ -266,19 +283,19 @@ function nl2sno(res::Function, init_x, n, iv, v)
     # in NL2SOL because Fortran did not have closures)
     uiparm = Int32[]
     urparm = Float64[]
-    ufparm = Array{Ptr{Nothing}}(1)
+    ufparm = Array{Ref{Cvoid}}(undef, 1)
     nl2res = nl2_set_residual(res)
 
     ccall((:nl2sno_, libnl2sol), Nothing,
         (Ref{Int32},
          Ref{Int32},
-         Ptr{Float64},
-         Ptr{Nothing},
-         Ptr{Int32},
-         Ptr{Float64},
-         Ptr{Int32},
-         Ptr{Float64},
-         Ptr{Nothing}),
+         Ref{Float64},
+         Ptr{Nothing},  # this MUST be a Ptr{Nothing}
+         Ref{Int32},
+         Ref{Float64},
+         Ref{Int32},
+         Ref{Float64},
+         Ref{Ref{Cvoid}}),
          n_, p_, x, nl2res, iv, v, uiparm, urparm, ufparm)
 
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SNO memory corruption")
@@ -354,22 +371,22 @@ function nl2sol(res::Function, jac::Function, init_x, n, iv, v)
     # Currently, we do not use any of the u*parm arrays.
     uiparm = Array{Int32}(undef, 1)
     urparm = Float64[]
-    ufparm = Array{Ptr{Nothing}}(undef, 1)
+    ufparm = Array{Ref{Cvoid}}(undef, 1)
 
     nl2res = nl2_set_residual(res)
     nl2jac = nl2_set_jacobian(jac)
 
-    ccall((:nl2sol_, libnl2sol), Nothing,
+    ccall((:nl2sol_, libnl2sol), Cvoid,
         (Ref{Int32},
          Ref{Int32},
-         Ptr{Float64},
-         Ptr{Nothing},
-         Ptr{Nothing},
-         Ptr{Int32},
-         Ptr{Float64},
-         Ptr{Int32},
-         Ptr{Float64},
-         Ptr{Nothing}),
+         Ref{Float64},
+         Ptr{Nothing},   # this MUST be a Ptr{Nothing}
+         Ptr{Nothing},   # this MUST be a Ptr{Nothing}
+         Ref{Int32},
+         Ref{Float64},
+         Ref{Int32},
+         Ref{Float64},
+         Ref{Ref{Cvoid}}),
          n_, p_, x, nl2res, nl2jac, iv, v, uiparm, urparm, ufparm)
 
     (iv[end] != 0 || v[end] != 0.0) && error("NL2SOL memory corruption")

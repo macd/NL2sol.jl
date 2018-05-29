@@ -904,11 +904,11 @@ function runall()
             # Remember to subtract out the number of function calls
             # and gradient calls used to calculate the covarience..
             #
-            # NOTE: some new (Version 0.5.0-dev+5332) weird issue causes
-            # problems with arrays of type string so that I cannot make a vector
+            # NOTE: some new (Version 0.5.0-dev+5332) decided that transpose
+            # is recursive even into strings so that I cannot make a vector
             # of strings and then take the transpose.  To make a row, I need a
             # very long line... check later to see if this gets fixed.
-            nl = [tag (i-1)  n  p  Int(iv[NFCALL] - iv[NFCOV])  Int(iv[NGCALL] - iv[NGCOV])  conv[Int(iv[1])] v[FUNCT]  t   v[RELDX]]
+            nl = [tag (i-1)  n  p  Int(iv[NFCALL] - iv[NFCOV])  Int(iv[NGCALL] - iv[NGCOV]) conv[Int(iv[1])] v[FUNCT]  t   v[RELDX]]
 
             if all_results == nothing
                 all_results = nl
