@@ -134,57 +134,6 @@ function nl2_set_defaults(n, p)
     return iv, v
 end
 
-mutable struct NL2Vector{T}
-    p::Ptr{T}
-    count::Int32
-end
-
-Base.getindex(x::NL2Vector, i) = unsafe_load(x.p, i)
-Base.setindex!(x::NL2Vector, y, i) = unsafe_store!(x.p, y, i)
-Base.length(x::NL2Vector) = x.count
-
-# Base.endof(x::NL2Vector) = length(x)
-# Base.start(::NL2Vector) = 1    #start(x::NL2Vector) = 1
-# Base.next(x::NL2Vector, i) = (x[i], i+1)
-# Base.done(x::NL2Vector, i) = (i > length(x))
-
-Base.iterate(NV::NL2Vector, i=1) = i > NV.count ? nothing : (NV[i], i+1)
-
-
-# This is for debugging...
-LinearAlgebra.norm(x::NL2Vector) = function norm(x::NL2Vector)
-    n = 0.0
-    for v in x
-        n += v ^ 2
-    end
-    return sqrt(n)
-end
-
-mutable struct NL2Matrix{T}
-    p::Ptr{T}
-    rows::Int32
-    cols::Int32
-end
-
-Base.getindex(x::NL2Matrix, i, j) = unsafe_load(x.p, x.rows*(j - 1) + i)
-Base.getindex(x::NL2Matrix, i) = unsafe_load(x.p, i)  # as one-D
-Base.setindex!(x::NL2Matrix, y, i, j) = unsafe_store!(x.p, y, x.rows*(j - 1) + i)
-Base.setindex!(x::NL2Matrix, y, i) = unsafe_store!(x.p, y, i) # as one-D
-
-# living on the edge...  This is to make x[:] = 0.0 work for NL2Vector
-Base.unsafe_store!(x::NL2Vector{T}, val::T, ::Colon) where {T} =
-    function unsafe_store!(x::NL2Vector{T}, val::T, ::Colon) where {T}
-        l = length(x)
-        for i = 1:l
-            unsafe_store!(x.p, val, i)
-        end
-    end
-
-
-Base.length(x::NL2Matrix) = x.rows * x.cols
-Base.endof(x::NL2Matrix) = length(x)
-Base.size(x::NL2Matrix) = (x.rows, x.cols)
-
 function nl2_set_residual(res::Function)
     # Have tried function cacheing here in the past but probably too 
     # dangerous for by chance (or programmtically generated names) may get
@@ -200,8 +149,9 @@ function nl2_set_residual(res::Function)
                           uiparm, urparm, ufparm)
             n = unsafe_load(n_, 1)
             p = unsafe_load(p_, 1)
-            x = NL2Vector(x_, p)
-            r = NL2Vector(r_, n)
+            x = unsafe_wrap(Array, x_, p)
+            r = unsafe_wrap(Array, r_, n)
+
             # If the residual calculation raises a DomainError, we have taken 
             # a step inside of NL2SOL that is too big.  By setting nf_ to zero,
             # we are telling it to take a smaller step
@@ -248,8 +198,8 @@ function nl2_set_jacobian(jacobian::Function)
                        ufparm::Ptr{Ptr{Nothing}}) where {T}
             n = unsafe_load(n_, 1)
             p = unsafe_load(p_, 1)
-            x = NL2Vector(x_, p)
-            jac = NL2Matrix(jac_, n, p)
+            x = unsafe_wrap(Array, x_, p)
+            jac = unsafe_wrap(Array, jac_, (n, p))
             ($jacobian)(x, jac)
             return
         end
