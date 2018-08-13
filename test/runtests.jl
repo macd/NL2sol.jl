@@ -115,7 +115,7 @@ rrn = 1e-5 * rand(2)
 rjn = 1e-5 * rand(2,2)
 
 function helix_res(x, r)
-    theta = atan2(x[2], x[1]) / 2pi
+    theta = atan(x[2], x[1]) / 2pi
 
     if x[1] <= 0.0 && x[2] <= 0.0
         theta = theta + 1.0
@@ -349,8 +349,8 @@ end
 # 100*x_init.  Interesting, the Fortran code does _not_ run the case
 # 1*x_init.   It looks like it converges to a different minimum from
 # that starting point.
-const expmax = 1.999 * log(sqrt(0.999*realmax()))
-const expmin = 1.999 * log(sqrt(1.001*realmin()))
+const expmax = 1.999 * log(sqrt(0.999*floatmax()))
+const expmin = 1.999 * log(sqrt(1.001*floatmin()))
 
 function box_res(x, r)
     if -expmax > minimum(x)
@@ -815,7 +815,7 @@ conv = Dict(
 
 function dump(res, fname)
     ios = open(fname, "w")
-    sr = sortrows(res)
+    sr = sortslices(res, dims=1)
     for i in 1:size(sr)[1]
         @printf(ios, "%s, %d, %d, %d, %d, %d, %s, %9.3e, %9.3e, %9.3e\n",
                 replace(sr[i,1], r"_\d" => ""), sr[i,2:end]...)
@@ -904,11 +904,9 @@ function runall()
             # Remember to subtract out the number of function calls
             # and gradient calls used to calculate the covarience..
             #
-            # NOTE: some new (Version 0.5.0-dev+5332) decided that transpose
-            # is recursive even into strings so that I cannot make a vector
-            # of strings and then take the transpose.  To make a row, I need a
-            # very long line... check later to see if this gets fixed.
-            nl = [tag (i-1)  n  p  Int(iv[NFCALL] - iv[NFCOV])  Int(iv[NGCALL] - iv[NGCOV]) conv[Int(iv[1])] v[FUNCT]  t   v[RELDX]]
+            nl = permutedims([tag, (i-1),  n,  p,  Int(iv[NFCALL] - iv[NFCOV]),
+	                     Int(iv[NGCALL] - iv[NGCOV]), conv[Int(iv[1])],
+			     v[FUNCT],  t,   v[RELDX]])
 
             if all_results == nothing
                 all_results = nl
