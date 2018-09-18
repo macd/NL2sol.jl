@@ -1,30 +1,33 @@
-using Printf
+using NL2sol, Printf, Test
+
 # levenberg_marquardt is actually pretty simple _but_
 # LsqFit pulls in a bunch of stuff which is broken
 # right now
-use_levenberg = "use_levenberg" in ARGS
-use_levenberg && using LsqFit.levenberg_marquardt
+#use_levenberg = "use_levenberg" in ARGS
+#use_levenberg && using LsqFit.levenberg_marquardt
+use_levenberg = false
 
 # the finite difference derivatives do nasty things...
-use_nl2sno = "use_nl2sno" in ARGS
+#use_nl2sno = "use_nl2sno" in ARGS
+use_nl2sno = false
 
 # use the installed NL2sol instead of local dev one
-use_installed = "use_installed" in ARGS
-if use_installed
-    using NL2sol
-else
-    ENV["NL2SOL_LIBPATH"] = "../deps/usr/lib"
-    include("../src/NL2sol.jl")
-    import .NL2sol: nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!,
-                    PRUNIT, MXITER, MXFCAL, FUNCT0, NREDUC, NFCALL, NFCOV,
-                    NGCALL, NGCOV, FUNCT, RELDX
-end
+#use_installed = "use_installed" in ARGS
+#if use_installed
+#    using NL2sol
+# else
+#     ENV["NL2SOL_LIBPATH"] = "../deps/usr/lib"
+#     include("../src/NL2sol.jl")
+#     import .NL2sol: nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!,
+#                     PRUNIT, MXITER, MXFCAL, FUNCT0, NREDUC, NFCALL, NFCOV,
+#                     NGCALL, NGCOV, FUNCT, RELDX
+# end
 
-using Test
 
 # Often DataFrames is borked in the dev stream
-use_DataFrames = "use_DataFrames" in ARGS
-use_DataFrames && using DataFrames
+#use_DataFrames = "use_DataFrames" in ARGS
+#use_DataFrames && using DataFrames
+use_DataFrames = false
 
 # convert the optim multivariate results to a local version that
 # can be pretty printed.
