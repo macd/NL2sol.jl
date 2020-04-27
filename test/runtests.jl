@@ -1,12 +1,5 @@
 using NL2sol, Printf, Test
 
-# levenberg_marquardt is actually pretty simple _but_
-# LsqFit pulls in a bunch of stuff which is broken
-# right now
-#use_levenberg = "use_levenberg" in ARGS
-#use_levenberg && using LsqFit.levenberg_marquardt
-use_levenberg = false
-
 # the finite difference derivatives do nasty things...
 #use_nl2sno = "use_nl2sno" in ARGS
 use_nl2sno = false
@@ -362,9 +355,9 @@ function box_res(x, r)
     for i = 1:10
         ti = -0.1 * Float64(i)
         t1 = ti * x[1]
-        t1 > expmin ? e1 = exp(t1) : e1 = 0.0
+        e1 = t1 > expmin ? exp(t1) : 0.0
         t2 = ti*x[2]
-        t2 > expmin ? e2 = exp(t2) : e2 = 0.0
+        e2 = t2 > expmin ? exp(t2) : 0.0
         r[i] = (e1 - e2) - x[3]*(exp(ti) - exp(10.0 * ti))
     end
     return r
@@ -374,10 +367,10 @@ function box_jac(x, jac)
     for i = 1:10
         ti = -0.1 * Float64(i)
         t = x[1] * ti
-        t > expmin ? e = exp(t) : e = 0.0
+        e = t > expmin ? exp(t) : 0.0
         jac[i, 1] = ti * e
         t = x[2] * ti
-        t > expmin ? e = exp(t) : e = 0.0
+        e = t > expmin ? exp(t) : 0.0
         jac[i, 2] = -ti * e
         jac[i, 3] = exp(10.0 * ti) - exp(ti)
     end
@@ -735,7 +728,7 @@ function osborne2_jac(x, j)
         for k = 2:4
             t = x[k + 7] + ti
             theta = -x[k+4]*t*t
-            theta > uftolg ? r2 = -exp(theta) : r2 = 0.e0
+            r2 = theta > uftolg ? -exp(theta) : 0.e0
             j[i, k] = r2
             r2 = -t * r2 * x[k]
             j[i, k+4] = r2*t
@@ -759,7 +752,7 @@ function brown_jac(x, j, n)
     for k = 1:n
         t = 1.0e0
         for i = 1:n
-            i != k ? t = t * x[i] : t = t
+            t =  i != k ? t * x[i] : t
         end
         j[n, k] = t
     end
@@ -899,7 +892,7 @@ function runall()
             # we find a few negative values.  These match the full Fortran 
             # version when that is run, so I suspect that they only printed
             # the abs() of this value in Table II, so that is what I do here
-            v[FUNCT0] > 0.0 ? t = abs(v[NREDUC] / v[FUNCT0]) : t = 1.0
+            t = v[FUNCT0] > 0.0 ? abs(v[NREDUC] / v[FUNCT0]) : 1.0
 
             # This summary line is meant to match "Table II Default NL2SOL"
             # in "An Adaptive Nonlinear Least-Squares Algorithm", ie the
@@ -915,17 +908,6 @@ function runall()
                 all_results = nl
             else
                 all_results = [all_results; nl]
-            end
-            
-            results = try
-                if use_levenberg
-                    println("\nStarting Levenberg Marquardt on problem  $prb at scale $scale")
-                    levenberg_marquardt(lmres, lmjac, x_init; 
-                                        maxIter=400, tolX=tolX)
-                end
-            catch exc
-                println(exc)
-                println("Levenberg Marquardt exception $exc on problem $prb")
             end
 
             if use_nl2sno
@@ -943,10 +925,6 @@ function runall()
             if !quiet
                 println("\nnl2sol on problem $prb at scale $scale")
                 println(nl_results)
-                if use_levenberg
-                    println("\nlevenberg-marquardt on problem $prb at scale $scale")
-                    println(convert_results(results))
-                end
                 if use_nl2sno
                     println("\nNL2sno on problem $prb at scale $scale")
                     println(sno_results)
@@ -970,12 +948,11 @@ function runall()
     # incredibly brittle.
     check = [(1,1), (5,5), (25, 29), (26, 30), (42, 46), (43, 47), (44, 48)]
     for (i, j) in check
-        origDF[i, :] != newDF[j, :] ? pass = false : nothing
+        pass = origDF[i, :] != newDF[j, :] ? false : true
     end
     println("Passed subset of NL2sol paper results")
     #gc_enable(true)  # we get farther using nl2sno, generally, if we don't re-enable.  Why?
     return pass
 end
 
-# There is a lot of noise from levenberg_marquardt, but oh well for now
 !isinteractive() && @test(runall())

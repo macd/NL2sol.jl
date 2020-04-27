@@ -103,8 +103,7 @@ from Julia.
 
 The runtests.jl in the test directory has many examples of using Julia
 to call nl2sol and using Julia functions to calculate the residual and
-the jacobian.  Also included there is the ability to run the same tests by
-using Optim.levenberg_marquardt.
+the jacobian.
 
 There are two calling signitures for nl2sol.  One is the simplified
 version used above an its complete version is given by:
@@ -136,7 +135,7 @@ the iv and/or v arrays.  Also available are more status values in
 these arrays. They are well documented in the 'program paper' above.
 
 As an optimization solution, this would compete most directly with the
-levenberg\_marquardt from the Optim module.  It differs from that
+levenberg\_marquardt from the LsqFit module.  It differs from that
 algorithm in that NL2SOL is a quasi-Newton method (_not_ BFGS but
 rather DFP for those who care).  Because of that you would expect
 NL2SOL to perform better on those models that have large(r) residuals
@@ -145,7 +144,7 @@ guess is far from the optimim point.
 
 ## Limitations
 
-  * Only supported in Julia 0.7 (dev).
+  * Only supported in Julia 1.0+
 
   * Only a linux version, compiled on Ubuntu 16.04 is currently available. But the cmake
 build scripts should work on other Linux machines. Windows might be a challenge.
@@ -156,7 +155,7 @@ updates, has not been exported.
   * NL2sol uses a different convergence testing strategy than Optim.levenberg_marquardt.
 This makes doing apples to apples comparisons challenging.
 
-Note that we let the Julia wrapper for nl2sol allocate the memory for
+Note that we let the Julia wrapper for nl2sol allocates the memory for
 both the residual and the jacobian.
 
 nl2sol can print detailed iteration summaries.  This is turned on by

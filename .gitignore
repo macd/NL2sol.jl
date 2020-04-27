@@ -4,5 +4,6 @@
 *.gcda
 *.gcno
 *.gcov
+Manifest.toml
 build/
 test/nlresults.log

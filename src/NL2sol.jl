@@ -375,7 +375,7 @@ function nl2sol(res::Function, jac::Function, init_x, n;
     v[XCTOL] = tolX
     v[AFCTOL] = tolAbsFunc
     v[RFCTOL] = tolRelFunc
-    quiet ? iv[PRUNIT] = 0 : nothing
+    iv[PRUNIT] = quiet ? 0 : iv[PRUNIT]
     results = nl2sol(res, jac, init_x, n, iv, v)
     quiet || println("Convergence state: ", return_code[iv[1]])
     return results
