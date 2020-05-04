@@ -4,6 +4,7 @@ using Printf
 using Random
 using LinearAlgebra
 using Pkg
+using nl2sol_jll
 
 export nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!, return_code
 export MXFCAL, MXITER, OUTLEV, PRUNIT, NFCALL, NGCALL, NITER, NFCOV, NGCOV
@@ -112,12 +113,7 @@ const df_tolRelFunc = max(1e-10, eps()^(2/3))
 const df_maxIter = 400
 const df_maxFuncCall = 400
 
-# Note that the lib path needs to be a constant string
-if haskey(ENV, "NL2SOL_LIBPATH")
-    const libnl2sol = joinpath(ENV["NL2SOL_LIBPATH"], "libnl2sol.so")
-else
-    const libnl2sol = joinpath(@__DIR__, "../deps/usr/lib/libnl2sol.so")
-end
+const libnl2sol = nl2sol_jll.libnl2sol_path
 
 function nl2_reset_defaults!(iv, v)
     iv[:] = 0
