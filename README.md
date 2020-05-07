@@ -12,8 +12,8 @@ have been preallocated for those values.  These arrays are actually
 allocated in the Julia function nl2sol before passing to the Fortran
 subroutine nl2sol.
 
-NOTE: NL2sol.jl does some pointer tricks in order to interface with the
-      FORTRAN code, so tread lightly if you'd like to modify the code.
+## Installaton
+  Pkg.add("NL2sol")
 
 ## EXAMPLE USAGE NL2sol.nl2sol
 
@@ -145,9 +145,6 @@ guess is far from the optimim point.
 ## Limitations
 
   * Only supported in Julia 1.0+
-
-  * Only a linux version, compiled on Ubuntu 16.04 is currently available. But the cmake
-build scripts should work on other Linux machines. Windows might be a challenge.
 
   * nl2itr, which uses "reverse communication" to request residual and jacobian
 updates, has not been exported.
