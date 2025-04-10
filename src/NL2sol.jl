@@ -1,12 +1,10 @@
 module NL2sol
-import Base
 using Printf
 using Random
 using LinearAlgebra
-using Pkg
 using NL2sol_jll
 
-export nl2sol, nl2sno, nl2_set_defaults, nl2_reset_defaults!, return_code
+export nl2sol, nl2_set_defaults, nl2_reset_defaults!, return_code
 export MXFCAL, MXITER, OUTLEV, PRUNIT, NFCALL, NGCALL, NITER, NFCOV, NGCOV
 export AFCTOL, RFCTOL, XCTOL, XFTOL, NREDUC, DGNORM, DSTNRM, PREDUC, RADIUS
 export FUNCT, FUNCT0, RELDX
@@ -131,47 +129,29 @@ function nl2_set_defaults(n, p)
 end
 
 function nl2_set_residual(res::Function)
-    # Have tried function cacheing here in the past but probably too 
-    # dangerous for by chance (or programmtically generated names) may get
-    # same name with different definition.  Also, if we try to redefine even
-    # with a new function definition,
-    # commit 89424cc05a3fae94221efc45f24f924a75d2f58a
-    # causes some kind of corruption on the call to the redefined function 
-    # (not the first one), so just make certain to have a unique name now.
-    wr = Symbol(string("nl2_", res, "_", randstring(5)))
-    # Wrap residual for the nl2sol/nl2sno calling signature
-    func = quote
-        function ($wr)(n_, p_, x_::Ref{Float64}, nf_::Ref{Int32}, r_::Ref{Float64}, 
-                          uiparm, urparm, ufparm)
-            n = unsafe_load(n_, 1)
-            p = unsafe_load(p_, 1)
-            x = unsafe_wrap(Array, x_, p)
-            r = unsafe_wrap(Array, r_, n)
+    function residual(n_, p_, x_::Ref{Float64}, nf_::Ref{Int32}, r_::Ref{Float64}, 
+                      uiparm, urparm, ufparm)
+        n = unsafe_load(n_, 1)
+        p = unsafe_load(p_, 1)
+        x = unsafe_wrap(Array, x_, p)
+        r = unsafe_wrap(Array, r_, n)
 
-            # If the residual calculation raises a DomainError, we have taken 
-            # a step inside of NL2SOL that is too big.  By setting nf_ to zero,
-            # we are telling it to take a smaller step
-            try
-                ($res)(x, r)
-            catch y
-                if isa(y, DomainError)
-                    unsafe_store!(nf_, Int32(0))
-                else
-                    throw(y)
-                end
+        # If the residual calculation raises a DomainError, we have taken 
+        # a step inside of NL2SOL that is too big.  By setting nf_ to zero,
+        # we are telling it to take a smaller step
+        try
+            res(x, r)
+        catch y
+            if isa(y, DomainError)
+                unsafe_store!(nf_, Int32(0))
+            else
+                throw(y)
             end
-            return
         end
+        return
     end
-    nlf = eval(func)
 
-    # Using the new 0.7 / 1.0 form as a macro results in nlf not being
-    # defined unless we interpolate it into the macro call.  This is
-    # discussed in the manual in the chaper "Calling C and Fortran Code"
-    # in section "Closure cfunctions".
-    # I also needed to use Ptr{...} rather than Ref{...}, otherwise we get
-    # a hard crash.
-    nr = @cfunction($nlf, Cvoid, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64}, 
+    nr = @cfunction($residual, Cvoid, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64}, 
                                   Ptr{Int32}, Ptr{Float64}, Ptr{Int32}, 
                                   Ptr{Float64}, Ptr{Ptr{Cvoid}}))
 
@@ -179,31 +159,23 @@ function nl2_set_residual(res::Function)
 end
 
 function nl2_set_jacobian(jacobian::Function)
-    # See comments above on names
-    wj = Symbol(string("nl2_", jacobian, "_", randstring(5)))
-        
-    # Wrap jacobian for nl2sol calling signature
-    nj = quote
-        function ($wj)(n_::Ptr{Int32},
-                       p_::Ptr{Int32},
-                       x_::Ref{T},
-                       nf_::Ptr{Int32},
-                       jac_::Ref{T},
-                       uiparm::Ptr{Int32},
-                       urparm::Ptr{Float64},
-                       ufparm::Ptr{Ptr{Nothing}}) where {T}
-            n = unsafe_load(n_, 1)
-            p = unsafe_load(p_, 1)
-            x = unsafe_wrap(Array, x_, p)
-            jac = unsafe_wrap(Array, jac_, (n, p))
-            ($jacobian)(x, jac)
-            return
-        end
+    function nl2_jac(n_::Ptr{Int32},
+                   p_::Ptr{Int32},
+                   x_::Ref{T},
+                   nf_::Ptr{Int32},
+                   jac_::Ref{T},
+                   uiparm::Ptr{Int32},
+                   urparm::Ptr{Float64},
+                   ufparm::Ptr{Ptr{Nothing}}) where {T}
+        n = unsafe_load(n_, 1)
+        p = unsafe_load(p_, 1)
+        x = unsafe_wrap(Array, x_, p)
+        jac = unsafe_wrap(Array, jac_, (n, p))
+        jacobian(x, jac)
+        return
     end
-    nlj = eval(nj)
 
-    # see comments above
-    jc = @cfunction($nlj, Nothing, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
+    jc = @cfunction($nl2_jac, Nothing, (Ptr{Int32}, Ptr{Int32}, Ptr{Float64},
                                     Ptr{Int32}, Ptr{Float64}, Ptr{Int32},
                                     Ptr{Float64}, Ptr{Ptr{Nothing}}))
     
@@ -215,55 +187,6 @@ mutable struct NL2Results{T}
     initial_x::T
     final_x::T
     rcode::AbstractString
-end
-
-function nl2sno(res::Function, init_x, n, iv, v)
-    p = length(init_x)
-    x = copy(init_x)
-
-    # These need to be 32 bit ints for nl2sol
-    p_ = Int32(p)   
-    n_ = Int32(n)
-
-    # Currently, we do not use any of the u*parm arrays.  (They are only
-    # in NL2SOL because Fortran did not have closures)
-    uiparm = Int32[]
-    urparm = Float64[]
-    ufparm = Array{Ref{Cvoid}}(undef, 1)
-    nl2res = nl2_set_residual(res)
-
-    ccall((:nl2sno_, libnl2sol), Nothing,
-        (Ref{Int32},
-         Ref{Int32},
-         Ref{Float64},
-         Ptr{Nothing},  # this MUST be a Ptr{Nothing}
-         Ref{Int32},
-         Ref{Float64},
-         Ref{Int32},
-         Ref{Float64},
-         Ref{Ref{Cvoid}}),
-         n_, p_, x, nl2res, iv, v, uiparm, urparm, ufparm)
-
-    (iv[end] != 0 || v[end] != 0.0) && error("NL2SNO memory corruption")
-
-    results = NL2OptimizationResults(
-        "nl2sno",
-         init_x,
-         x,
-         v[FUNCT],
-         Int(iv[NITER]),
-         Int(iv[NITER]) >= Int(iv[MXFCAL]),
-         Int(iv[1]) == 3 || Int(iv[1]) == 5,
-         v[RELDX],
-         Int(iv[1]) == 4 || Int(iv[1]) == 6,
-         0.0, 
-         false,
-         0.0,
-         # TODO: check these against paper
-         Int(iv[NFCALL] - iv[NFCOV]),
-         Int(iv[NGCALL] - iv[NGCOV])
-    )
-    return results
 end
 
 

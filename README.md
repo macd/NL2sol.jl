@@ -41,32 +41,6 @@ subroutine nl2sol.
 
     main()
 
-Alternatively, if you do not have or do not want to write a jacobian, you can
-use nl2sno, which uses a finite difference approximation to the jacobian.  Even
-if you do have the jacobian available, nl2sno can be used to check for its 
-correctness.  In this case, you must provide the iv and v arrays (see below).
-A complete example would look like:
-
-## EXAMPLE USAGE NL2sol.nl2sno
-
-    using NL2sol
-
-    function rosenbrock_res(x, r)
-        r[1] = 10.0 * (x[2] - x[1]^2 )
-        r[2] = 1.0 - x[1]
-        return r
-    end
-
-    function main()
-        println("NL2nso on Rosenbrock")
-        iv, v = nl2_set_defaults(2, 2)
-        result = nl2sno(rosenbrock_res, [-1.2, 1.0], 2, iv, v)
-        println(result)
-    end
-
-    main()
-
-
 ## Background
 
 The wrapped Fortran code is the original netlib version of NL2SOL, a non-linear,
@@ -91,11 +65,7 @@ single blob in the file named nl2sol.netlib.orig.f
 This blob has also been broken up into the individual source files and
 commented out the "c/6" code for the "c/7" code, which enables the f77
 version.  Also added are cmake files for building the code and running
-the tests.  Running the Fortran tests and coverage is manual and
-not part of the installation. (The coverage is a very respectable 87%)
-The original fortran test code now lives in a separate subdirectory
-(.../deps/src/tests) as well.  To learn how to build and run the tests
-with coverage, see NL2sol.jl/deps/src/CMakeLists.txt
+the tests. For more information see the NL2sol.f github repo.
 
 Wrapper code has been added using the C interface facilities of Julia.
 (ie ccall and cfunction etc), so that nl2sol can be called directly
@@ -136,15 +106,18 @@ these arrays. They are well documented in the 'program paper' above.
 
 As an optimization solution, this would compete most directly with the
 levenberg\_marquardt from the LsqFit module.  It differs from that
-algorithm in that NL2SOL is a quasi-Newton method (_not_ BFGS but
-rather DFP for those who care).  Because of that you would expect
-NL2SOL to perform better on those models that have large(r) residuals
-at the optimum.  It will also generally perform better if the starting
-guess is far from the optimim point.
+algorithm in that NL2SOL "maintains a secant approximation S to the
+second-order part of the least squares Hessian and adaptively decides
+when to use this approximation." When not using the secant approximation,
+the method is essentially equivalent to Levenberg Marquardt.
+
+In my experience NL2SOL has performed better on models that have
+large(r) residuals at the optimum.  It seems to also perform
+better than LM if the starting guess is far from the optimum point.
 
 ## Limitations
 
-  * Only supported in Julia 1.0+
+  * Only supported in Julia 1.10+
 
   * nl2itr, which uses "reverse communication" to request residual and jacobian
 updates, has not been exported.
@@ -160,3 +133,15 @@ setting the keyword parameter quiet to false, ie
 
         result = nl2sol(rosenbrock_res, rosenbrock_jac, [-1.2, 1.0], 2; quiet=false)
 
+## Release Notes
+
+### 1.1.0
+
+  * Reworked the wrapping of the residual and the jacobian because of the stricter 
+    world age checking in Julia 1.12
+    
+  * Removed support for nl2sno, the function that performed a finite difference 
+    approximation to the Jacobian. This code was always somewhat brittle and there
+    are a number of Julia packages for automatic differentiation.
+    
+  * Removed some unused dependencies.
